@@ -11,7 +11,7 @@
 <div id="aurora"></div>
 <div id="app">
   <header>
-    <div class="brand">Aura · Agent Simulator</div>
+    <div class="brand">AI Agent Simulator</div>
     <div id="cash">$0</div>
     <div id="rate">$0/sec</div>
     <div><button id="goal"><span class="g-label">Next</span><span id="goalText">—</span><span class="g-hint" id="goalHint"></span><span class="g-go" id="goalGo">→</span></button></div>
@@ -25,14 +25,22 @@
   </header>
 
   <nav id="dock">
-    <div class="tab on" data-tab="agents">🤖<span class="tip">Agents</span></div>
-    <div class="tab" data-tab="upgrades">⚡<span class="tip">Upgrades</span></div>
-    <div class="tab locked" data-tab="compute" id="tabCompute">🖥️<span class="tip">Compute</span></div>
-    <div class="tab locked" data-tab="models" id="tabModels">🧠<span class="tip">Models</span></div>
-    <div class="tab locked" data-tab="singularity" id="tabSing">🌌<span class="tip">Singularity</span></div>
-    <div class="tab" data-tab="achievements">🏆<span class="tip">Achievements</span></div>
-    <div class="tab" data-tab="stats">📊<span class="tip">Stats & Saves</span></div>
-    <div class="tab" id="tabSound"><span id="soundIcon">🔊</span><span class="tip">Sound</span></div>
+    <div id="worldSwitch">
+      <button class="wbtn on" data-world="sim" title="Simulator">🖥</button>
+      <button class="wbtn" data-world="chain" title="Blockchain">⛓</button>
+    </div>
+    <div class="tab on" data-tab="agents" data-world="sim">🤖<span class="tip">Agents</span></div>
+    <div class="tab" data-tab="upgrades" data-world="sim">⚡<span class="tip">Upgrades</span></div>
+    <div class="tab locked" data-tab="compute" id="tabCompute" data-world="sim">🖥️<span class="tip">Compute</span></div>
+    <div class="tab locked" data-tab="models" id="tabModels" data-world="sim">🧠<span class="tip">Models</span></div>
+    <div class="tab locked" data-tab="singularity" id="tabSing" data-world="sim">🌌<span class="tip">Singularity</span></div>
+    <div class="tab locked" data-tab="tokenize" id="tabTokenize" data-world="sim">⛓<span class="tip">Tokenize</span></div>
+    <div class="tab" data-tab="agi" id="tabAgi" data-world="sim">🧬<span class="tip">AGI Agents</span></div>
+    <div class="tab" data-tab="validators" id="tabValidators" data-world="chain">⛏️<span class="tip">Validators</span></div>
+    <div class="tab" data-tab="contracts" id="tabContracts" data-world="chain">📜<span class="tip">Smart Contracts</span></div>
+    <div class="tab" data-tab="achievements" data-world="both">🏆<span class="tip">Achievements</span></div>
+    <div class="tab" data-tab="stats" data-world="both">📊<span class="tip">Stats & Saves</span></div>
+    <div class="tab" id="tabSound" data-world="both"><span id="soundIcon">🔊</span><span class="tip">Sound</span></div>
   </nav>
 
   <section class="panel on" data-panel="agents">
@@ -95,6 +103,60 @@
       </div></div>
   </section>
 
+  <section class="panel" data-panel="tokenize">
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">tokenize.protocol — prestige layer IV</span></div>
+      <div class="pane-body">
+        <div class="prestige-hero">
+          <div class="p-title">⛓ Tokenize</div>
+          <div class="p-desc">Convert raw scale into a second currency. NOT a reset — nothing is wiped.
+            Activating unlocks Tokens and the Blockchain world, which runs alongside the cash world from then on.</div>
+          <div class="p-stat" id="tokenizeStat">—</div>
+          <button class="p-btn" id="tokenizeBtn">Activate Tokenize</button>
+          <div class="p-warn" id="tokenizeWarn"></div>
+        </div>
+      </div></div>
+  </section>
+
+  <section class="panel" data-panel="agi">
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">agi.roster — shard sink</span></div>
+      <div class="pane-body" id="agiLockedBody">
+        <div class="prestige-hero">
+          <div class="p-title">🧬 AGI Agents</div>
+          <div class="p-desc">Buy agents once with Shards, then freely equip up to 3 into your active roster.
+            Only EQUIPPED agents give their boost — this is the strategy layer: which 3 of 5 do you run?</div>
+          <div class="p-stat" id="agiReqStat">—</div>
+          <button class="p-btn" id="agiUnlockBtn">Unlock AGI Agents (100 shards)</button>
+        </div>
+      </div>
+      <div class="pane-body" id="agiUnlockedBody" style="display:none">
+        <div class="agi-slots" id="agiSlots"></div>
+        <div class="shop-grid" id="agiShop"></div>
+      </div></div>
+  </section>
+
+  <section class="panel" data-panel="validators">
+    <div class="chain-cols">
+      <div class="pane chain-pane">
+        <div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+          <span class="pane-title">chain.validators — deployment console</span></div>
+        <div class="pane-body" id="validatorsPanel"></div>
+      </div>
+      <div class="pane chain-pane chain-feed-pane">
+        <div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+          <span class="pane-title">block.feed</span></div>
+        <div class="pane-body"><div id="blockFeed"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="contracts">
+    <div class="pane chain-pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">smart.contracts — token-funded upgrades</span></div>
+      <div class="pane-body"><div class="shop-grid" id="contractsGrid"></div></div></div>
+  </section>
+
   <section class="panel" data-panel="achievements">
     <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
       <span class="pane-title">trophies.vault</span></div>
@@ -117,9 +179,10 @@
       </div></div>
   </section>
 </div>
-<div id="hud"><div id="hudCash"></div><div id="hudRate"></div></div>
+<div id="hud"><div id="hudCash"></div><div id="hudRate"></div><div id="hudTokens" style="display:none"></div></div>
 <div id="toasts"></div>
 
+<script src="break_infinity.min.js"></script>
 <script src="game.js"></script>
 <script>
 'use strict';
@@ -286,10 +349,10 @@ function swarmSpeak(gain) {
 setInterval(() => {
   if (document.hidden) return;
   const rate = cashPerSecond();
-  if (rate <= 0) return;
+  if (rate.lte(0)) return;
   const pool = activeAgentPool();
   const a = pool[Math.floor(Math.random() * pool.length)];
-  pushMsg(a, CHATTER.idle[Math.floor(Math.random() * CHATTER.idle.length)], '+' + fmtCash(rate * 2.5), 'idle');
+  pushMsg(a, CHATTER.idle[Math.floor(Math.random() * CHATTER.idle.length)], '+' + fmtCash(rate.times(2.5)), 'idle');
 }, 2500);
 ui.milestoneChat = (tierName) => {
   const t = CHATTER.milestone[Math.floor(Math.random() * CHATTER.milestone.length)].replace('%T', tierName);
@@ -298,7 +361,7 @@ ui.milestoneChat = (tierName) => {
 ui.prestigeChat = () => pushMsg(SWARM[4], CHATTER.prestige[Math.floor(Math.random() * CHATTER.prestige.length)], '', 'system');
 // idle money motes — production is visible even when you touch nothing
 setInterval(() => {
-  if (reduceMotion || cashPerSecond() <= 0 || document.hidden) return;
+  if (reduceMotion || cashPerSecond().lte(0) || document.hidden) return;
   const rows = document.querySelectorAll('.tier.producing');
   if (!rows.length) return;
   const r = rows[Math.floor(Math.random() * rows.length)].getBoundingClientRect();
@@ -329,7 +392,9 @@ function unlockTab(id) {
 }
 
 /* ============================ structure builders ============================ */
-const refs = { tiers: [], upgrades: {}, cshop: {}, sshop: {}, ach: {}, lastMilestones: [] };
+const refs = { tiers: [], upgrades: {}, cshop: {}, sshop: {}, ach: {}, lastMilestones: [],
+  validators: [], contracts: {}, agi: {}, agiSlots: [] };
+const tokenizeUnlockCash = new Decimal(CONFIG.tokenize.unlockCash);
 function buildTiers() {
   const panel = document.getElementById('tiersPanel');
   panel.innerHTML = ''; refs.tiers = [];
@@ -396,11 +461,94 @@ function buildAchievements() {
     refs.ach[a.id] = d;
   }
 }
+function buildValidators() {
+  const panel = document.getElementById('validatorsPanel');
+  panel.innerHTML = ''; refs.validators = [];
+  CONFIG.blockchain.validators.forEach((cfg, i) => {
+    const row = document.createElement('div');
+    row.className = 'validator';
+    row.innerHTML = `
+      <div class="validator-glyph">${cfg.glyph}</div>
+      <div class="grow">
+        <div class="v-name">${cfg.name}<span class="cur">${cfg.currency}</span></div>
+        <div class="v-desc">${cfg.desc}</div>
+        <div class="v-out"></div>
+      </div>
+      <div class="v-counts"><div class="owned"></div><div class="bought"></div></div>
+      <div class="buy-col">
+        <button class="vbuy" data-n="1">x1<span class="cost"></span></button>
+        <button class="vbuy" data-n="10">x10<span class="cost"></span></button>
+        <button class="vbuy" data-n="max">Max<span class="cost"></span></button>
+      </div>`;
+    row.querySelectorAll('.vbuy').forEach(b => b.addEventListener('click', () => {
+      if (buyValidator(i, b.dataset.n === 'max' ? 'max' : parseInt(b.dataset.n, 10))) ui.sfxTick();
+    }));
+    panel.appendChild(row);
+    refs.validators.push({
+      row, out: row.querySelector('.v-out'), owned: row.querySelector('.owned'),
+      bought: row.querySelector('.bought'), btns: [...row.querySelectorAll('.vbuy')],
+    });
+  });
+}
+function buildAgiSlots() {
+  const wrap = document.getElementById('agiSlots');
+  wrap.innerHTML = ''; refs.agiSlots = [];
+  for (let i = 0; i < CONFIG.agiAgents.slots; i++) {
+    const d = document.createElement('div');
+    d.className = 'agi-slot';
+    d.innerHTML = `<span class="slot-glyph"></span><span class="slot-name"></span>`;
+    d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('drag-over'); });
+    d.addEventListener('dragleave', () => d.classList.remove('drag-over'));
+    d.addEventListener('drop', e => {
+      e.preventDefault(); d.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('text/plain');
+      if (id && game.agiAgents.owned[id] && !isAgentEquipped(id)) {
+        if (!equipAgiAgent(id)) ui.toast('Slots full', 'Unequip one of your 3 agents first');
+        else ui.sfxTick();
+      }
+    });
+    d.addEventListener('click', () => { // click a filled slot to bench that agent
+      const id = game.agiAgents.equipped[i];
+      if (id) { unequipAgiAgent(id); ui.sfxTick(); }
+    });
+    wrap.appendChild(d);
+    refs.agiSlots.push({ el: d, glyph: d.querySelector('.slot-glyph'), name: d.querySelector('.slot-name') });
+  }
+}
+function buildAgiShop() {
+  const grid = document.getElementById('agiShop');
+  grid.innerHTML = ''; refs.agi = {};
+  for (const a of CONFIG.agiAgents.list) {
+    const d = document.createElement('div');
+    d.className = 'shop-item agent-card' + (a.locked ? ' silhouette' : '');
+    d.draggable = true;
+    d.innerHTML = `<div class="s-name">${a.locked ? '❔ ???' : a.name}</div>
+      <div class="a-title">${a.locked ? 'awaiting classification' : a.title}</div>
+      <div class="s-desc">${a.desc}</div>
+      <div class="s-cost"></div>`;
+    d.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', a.id));
+    d.addEventListener('click', () => {
+      if (!game.agiAgents.owned[a.id]) {
+        if (buyAgiAgent(a.id)) ui.sfxTick();
+      } else if (isAgentEquipped(a.id)) {
+        unequipAgiAgent(a.id); ui.sfxTick();
+      } else if (!equipAgiAgent(a.id)) {
+        ui.toast('Slots full', 'Unequip one of your 3 agents first');
+      } else ui.sfxTick();
+    });
+    grid.appendChild(d);
+    refs.agi[a.id] = { el: d, cost: d.querySelector('.s-cost') };
+  }
+}
 function rebuildStructure() {
   buildTiers();
   buildShop('upgradesGrid', CONFIG.upgrades, buyUpgrade, it => fmtCash(it.cost), refs.upgrades);
   buildShop('computeShop', CONFIG.compute.shop, buyComputeShop, it => fmt(it.cost) + ' compute', refs.cshop);
   buildShop('shardShop', CONFIG.singularity.shop, buyShardShop, it => fmt(it.cost) + ' shards', refs.sshop);
+  buildShop('contractsGrid', CONFIG.blockchain.contracts, buyContract, it => fmtTok(it.cost), refs.contracts);
+  buildValidators();
+  buildAgiSlots();
+  buildAgiShop();
   buildAchievements();
   ui.dirtyStructure = false;
 }
@@ -415,17 +563,29 @@ function updateShopStates(items, store, ownedFn, canFn) {
     d.classList.toggle('cant', !owned && !canFn(it));
   }
 }
-let shownCash = 0;
+let shownCash = new Decimal(0);
 function render() {
   if (ui.dirtyStructure) rebuildStructure();
   // eased count-up: the number glides, which reads as "alive"
-  shownCash += (game.cash - shownCash) * 0.35;
-  if (Math.abs(shownCash - game.cash) < Math.max(1, game.cash * 1e-6)) shownCash = game.cash;
+  if (shownCash.gt(game.cash.times(100))) {
+    // big drop (prestige/reset): animate in EXPONENT space — a linear lerp
+    // would take minutes to descend hundreds of orders of magnitude.
+    // 35%/frame on the exponent gap => full 1e300 -> 0 sweep in ~1.5s.
+    const target = game.cash.lte(0) ? 0 : game.cash.exponent;
+    const cur = shownCash.lte(0) ? 0 : shownCash.exponent;
+    const nextExp = cur - Math.max(1, (cur - target) * 0.35);
+    shownCash = nextExp <= target + 0.5 ? game.cash : Decimal.pow(10, nextExp);
+  } else {
+    shownCash = shownCash.plus(game.cash.minus(shownCash).times(0.35));
+    if (game.cash.minus(shownCash).abs().lt(Decimal.max(1, game.cash.times(1e-6)))) shownCash = game.cash;
+  }
   $('cash').textContent = fmtCash(shownCash);
   $('rate').textContent = fmtCash(cashPerSecond()) + '/sec · click ' + fmtCash(clickPower());
   $('hudCash').textContent = fmtCash(shownCash);
   $('hudRate').textContent = '+' + fmtCash(cashPerSecond()) + '/sec';
   $('hud').classList.toggle('show', (window.scrollY || 0) > 180);
+  $('hudTokens').style.display = game.tokenize.unlocked ? '' : 'none';
+  if (game.tokenize.unlocked) $('hudTokens').textContent = fmtTok(game.blockchain.tokens) + ' · +' + fmtTok(tokenPerSecond()) + '/s';
   const goal = nextGoal();
   $('goalText').textContent = goal.text; $('goalHint').textContent = goal.hint;
   $('goal').dataset.action = goal.action;
@@ -437,11 +597,11 @@ function render() {
   refs.tiers.forEach((r, i) => {
     if (!r) return;
     const t = game.tiers[i];
-    r.row.classList.toggle('producing', t.owned > 0);
+    r.row.classList.toggle('producing', t.owned.gt(0));
     r.owned.textContent = fmt(t.owned) + ' active';
     r.bought.textContent = fmt(t.purchased) + ' deployed';
     const mm = Math.floor(t.purchased / CONFIG.milestone.per);
-    r.mult.textContent = mm > 0 ? `×${fmt(Math.pow(CONFIG.milestone.mult, mm))}` : '';
+    r.mult.textContent = mm > 0 ? `×${fmt(new Decimal(CONFIG.milestone.mult).pow(mm))}` : '';
     r.mile.style.width = (t.purchased % CONFIG.milestone.per) / CONFIG.milestone.per * 100 + '%';
     // minmax line: per-unit output, next milestone count, cost growth — no hidden math
     const into = i === 0 ? '$' : CONFIG.tiers[i - 1].name;
@@ -461,7 +621,7 @@ function render() {
     r.btns.forEach(b => {
       const n = b.dataset.n === 'max' ? tierMaxAffordable(i) : parseInt(b.dataset.n, 10);
       const cost = n > 0 ? tierCostN(i, t.purchased, n) : tierCost(i, t.purchased);
-      const can = n > 0 && cost <= game.cash;
+      const can = n > 0 && cost.lte(game.cash);
       b.querySelector('.cost').textContent = fmtCash(cost);
       b.disabled = !can;
       b.classList.toggle('affordable', can);
@@ -472,24 +632,26 @@ function render() {
     if (!refs.tiers[i] && (i === 0 || game.tiers[i - 1].purchased >= 1)) ui.dirtyStructure = true;
   });
 
-  updateShopStates(CONFIG.upgrades, refs.upgrades, id => game.upgrades[id], it => game.cash >= it.cost);
-  updateShopStates(CONFIG.compute.shop, refs.cshop, id => game.compute.shop[id], it => game.compute.points >= it.cost);
+  updateShopStates(CONFIG.upgrades, refs.upgrades, id => game.upgrades[id], it => game.cash.gte(it.cost));
+  updateShopStates(CONFIG.compute.shop, refs.cshop, id => game.compute.shop[id], it => game.compute.points.gte(it.cost));
   updateShopStates(CONFIG.singularity.shop, refs.sshop, id => game.singularity.shop[id], it => game.singularity.shards >= it.cost);
 
-  if (game.cashThisRun >= CONFIG.compute.unlockCash * 0.01 || game.stats.computeResets > 0) unlockTab('tabCompute');
+  if (game.cashThisRun.gte(CONFIG.compute.unlockCash * 0.01) || game.stats.computeResets > 0) unlockTab('tabCompute');
   if (game.stats.computeResets > 0) unlockTab('tabModels');
   if (game.models.level >= CONFIG.singularity.unlockModelLevel - 2 || game.stats.singularities > 0) unlockTab('tabSing');
+  if (game.cashThisRun.gte(tokenizeUnlockCash.times(1e-4)) || game.tokenize.unlocked) unlockTab('tabTokenize');
+  document.getElementById('worldSwitch').classList.toggle('show', game.tokenize.unlocked);
 
   const cg = computeGain();
-  $('computeStat').textContent = (cg > 0
+  $('computeStat').textContent = (cg.gt(0)
     ? `Prestige now: +${fmt(cg)} compute (have ${fmt(game.compute.points)} · cycle ${fmt(game.compute.thisModelEarned)})`
     : `Reach ${fmtCash(CONFIG.compute.unlockCash)} this run (${fmtCash(game.cashThisRun)})`)
-    + ` · next +1: ${fmtCash(cashForComputeGain(cg + 1))}`;
-  $('computeBtn').disabled = cg <= 0;
-  $('computeBtn').classList.toggle('ready', cg > 0);
+    + ` · next +1: ${fmtCash(cashForComputeGain(cg.plus(1)))}`;
+  $('computeBtn').disabled = cg.lte(0);
+  $('computeBtn').classList.toggle('ready', cg.gt(0));
   const cwParts = [];
-  if (cg > 0 && cg < 2 * game.compute.thisModelEarned) cwParts.push('NOT a record run (gain must be >= ' + fmt(2 * game.compute.thisModelEarned) + ')');
-  cwParts.push('next +1 compute at ' + fmtCash(cashForComputeGain(cg + 1)) + ' this run');
+  if (cg.gt(0) && cg.lt(game.compute.thisModelEarned.times(2))) cwParts.push('NOT a record run (gain must be >= ' + fmt(game.compute.thisModelEarned.times(2)) + ')');
+  cwParts.push('next +1 compute at ' + fmtCash(cashForComputeGain(cg.plus(1))) + ' this run');
   const mreq = modelRequirement(game.models.level);
   cwParts.push('record for v' + (game.models.level + 1) + ' needs a single reset of ' + fmt(mreq) + ' (~' + fmtCash(cashForComputeGain(mreq)) + ')');
   $('computeWarn').textContent = cwParts.join(' · ');
@@ -508,6 +670,68 @@ function render() {
   $('singBtn').disabled = !canSingularity();
   $('singBtn').classList.toggle('ready', canSingularity());
 
+  // ---- tokenize ----
+  $('tokenizeStat').textContent = game.tokenize.unlocked
+    ? '✅ Tokenize is active — the Blockchain world runs alongside the cash world.'
+    : `Need ${fmtCash(tokenizeUnlockCash)} cash this run (have ${fmtCash(game.cashThisRun)})`;
+  $('tokenizeBtn').style.display = game.tokenize.unlocked ? 'none' : '';
+  $('tokenizeBtn').disabled = !canTokenize();
+  $('tokenizeBtn').classList.toggle('ready', canTokenize());
+  $('tokenizeWarn').textContent = game.tokenize.unlocked ? '' : 'A one-time gateway, not a reset — nothing is wiped.';
+
+  // ---- AGI agents ----
+  $('agiLockedBody').style.display = game.agiAgents.unlocked ? 'none' : '';
+  $('agiUnlockedBody').style.display = game.agiAgents.unlocked ? '' : 'none';
+  if (!game.agiAgents.unlocked) {
+    $('agiReqStat').textContent =
+      `Requires ${CONFIG.agiAgents.unlockSingularities} Singularities (have ${game.stats.singularities}) ` +
+      `AND ${CONFIG.agiAgents.unlockShards} Shards (have ${fmt(game.singularity.shards)})`;
+    $('agiUnlockBtn').disabled = !canUnlockAgiAgents();
+    $('agiUnlockBtn').classList.toggle('ready', canUnlockAgiAgents());
+  } else {
+    refs.agiSlots.forEach((s, i) => {
+      const id = game.agiAgents.equipped[i];
+      const a = id && CONFIG.agiAgents.list.find(x => x.id === id);
+      s.el.classList.toggle('filled', !!a);
+      s.glyph.textContent = a ? (a.locked ? '❔' : '🤖') : '➕';
+      s.name.textContent = a ? (a.locked ? '???' : a.name) : `Slot ${i + 1}`;
+    });
+    for (const a of CONFIG.agiAgents.list) {
+      const r = refs.agi[a.id]; if (!r) continue;
+      const owned = !!game.agiAgents.owned[a.id];
+      const equipped = isAgentEquipped(a.id);
+      r.el.classList.toggle('owned', owned);
+      r.el.classList.toggle('equipped', equipped);
+      r.el.classList.toggle('cant', !owned && game.singularity.shards < a.cost);
+      r.cost.textContent = owned
+        ? (equipped ? 'Equipped — click to bench' : 'Owned — click to equip')
+        : fmt(a.cost) + ' shards';
+    }
+  }
+
+  // ---- blockchain: validators ----
+  refs.validators.forEach((r, i) => {
+    const v = game.blockchain.validators[i];
+    const cfg = CONFIG.blockchain.validators[i];
+    r.row.classList.toggle('producing', v.owned.gt(0));
+    r.owned.textContent = fmt(v.owned) + ' active';
+    r.bought.textContent = fmt(v.purchased) + ' deployed';
+    const into = i === 0 ? 'Tokens' : CONFIG.blockchain.validators[i - 1].name;
+    r.out.textContent = `1 unit → ${fmt(validatorUnitOutput(i))} ${into}/s`;
+    r.btns.forEach(b => {
+      const n = b.dataset.n === 'max' ? validatorMaxAffordable(i) : parseInt(b.dataset.n, 10);
+      const cost = n > 0 ? validatorCostN(i, v.purchased, n) : validatorCost(i, v.purchased);
+      const wallet = cfg.currency === 'token' ? game.blockchain.tokens : game.cash;
+      const can = n > 0 && cost.lte(wallet);
+      b.querySelector('.cost').textContent = cfg.currency === 'token' ? fmtTok(cost) : fmtCash(cost);
+      b.disabled = !can;
+      b.classList.toggle('affordable', can);
+      if (b.dataset.n === 'max') b.firstChild.textContent = n > 0 ? `Max ${fmt(n)}` : 'Max';
+    });
+  });
+  // ---- blockchain: smart contracts ----
+  updateShopStates(CONFIG.blockchain.contracts, refs.contracts, id => game.blockchain.contracts[id], it => game.blockchain.tokens.gte(it.cost));
+
   for (const a of CONFIG.achievements) refs.ach[a.id]?.classList.toggle('got', !!game.achievements[a.id]);
 
   const bd = statBreakdown();
@@ -518,6 +742,7 @@ function render() {
     <div class="stat-line"><span>Compute prestiges</span><b>${fmt(game.stats.computeResets)}</b></div>
     <div class="stat-line"><span>Models trained</span><b>${fmt(game.stats.modelResets)}</b></div>
     <div class="stat-line"><span>Singularities</span><b>${fmt(game.stats.singularities)}</b></div>
+    ${game.tokenize.unlocked ? `<div class="stat-line"><span>Lifetime tokens</span><b>${fmtTok(game.blockchain.lifetimeTokens)}</b></div>` : ''}
     <div class="stat-line"><span>Achievements</span><b>${Object.keys(game.achievements).length}/${CONFIG.achievements.length} (+${Math.round((achievementMult() - 1) * 100)}%)</b></div>
     <div class="stat-line"><span>Playtime</span><b>${(game.stats.playtime / 3600).toFixed(1)}h</b></div>
     <div class="stat-h">Multiplier breakdown (all multiply together)</div>
@@ -588,9 +813,53 @@ $('btnReset').addEventListener('click', () => {
 });
 $('tabSound').addEventListener('click', () => { ensureAudio(); toggleSound(); });
 
+/* ============================ world switch (🖥 Simulator / ⛓ Blockchain) ============================ */
+// Both worlds run simultaneously (tick() always advances both) — this only
+// changes which dock tabs/panels are visible, never what's simulated.
+let currentWorld = 'sim';
+function setWorld(w) {
+  currentWorld = w;
+  document.querySelectorAll('.wbtn').forEach(b => b.classList.toggle('on', b.dataset.world === w));
+  document.querySelectorAll('.tab[data-world]').forEach(t => {
+    const tw = t.dataset.world;
+    t.classList.toggle('w-hide', tw !== 'both' && tw !== w);
+  });
+  const activeTab = document.querySelector('.tab.on');
+  if (!activeTab || activeTab.classList.contains('w-hide')) switchTab(w === 'chain' ? 'validators' : 'agents');
+}
+document.querySelectorAll('.wbtn').forEach(b => b.addEventListener('click', () => setWorld(b.dataset.world)));
+
+/* ============================ tokenize + AGI agents ============================ */
+$('tokenizeBtn').addEventListener('click', () => {
+  if (doTokenize()) { ui.dirtyStructure = true; ui.toast('⛓ Tokenize activated', 'The Blockchain world is online'); ui.sfxChord(1); }
+});
+$('agiUnlockBtn').addEventListener('click', () => {
+  if (unlockAgiAgents()) { ui.dirtyStructure = true; ui.toast('🧬 AGI Agents unlocked', 'Assemble your 3-agent roster'); ui.sfxChord(1); }
+});
+
+/* ============================ block feed (cosmetic, driven by token rate) ============================ */
+function pushBlock() {
+  const hash = '0x' + Array.from({ length: 10 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  const reward = tokenPerSecond().times(0.5 + Math.random() * 2.5);
+  const d = document.createElement('div');
+  d.className = 'block-entry';
+  d.innerHTML = `<span class="b-hash"></span><div class="b-meta"><span class="b-time"></span><span class="b-reward"></span></div>`;
+  d.querySelector('.b-hash').textContent = hash;
+  d.querySelector('.b-time').textContent = new Date().toLocaleTimeString();
+  d.querySelector('.b-reward').textContent = '+' + fmtTok(reward);
+  const feed = document.getElementById('blockFeed');
+  feed.appendChild(d);
+  while (feed.children.length > 24) feed.removeChild(feed.firstChild);
+}
+setInterval(() => {
+  if (!game.tokenize.unlocked || document.hidden || tokenPerSecond().lte(0)) return;
+  pushBlock();
+}, 2200);
+
 /* ============================ boot ============================ */
 const offline = load();
 rebuildStructure();
+setWorld('sim');
 $('soundIcon').textContent = game.settings.soundOn ? '🔊' : '🔇';
 shownCash = game.cash;
 pushMsg(SWARM[5], 'Swarm online. Run a prompt to start earning.', '', 'system');

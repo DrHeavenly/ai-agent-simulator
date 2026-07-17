@@ -3,6 +3,7 @@
   --stroke:rgba(255,255,255,.09); --stroke-hi:rgba(255,255,255,.2);
   --text:#e9edf6; --muted:#8b94ab; --dim:#5c6478;
   --acc:#6d8dff; --acc2:#9a6dff; --acc3:#d66dff; --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --chain:#39d4c8; --chain-dim:#1f7d76;
   --grad:linear-gradient(135deg,#6d8dff,#9a6dff 60%,#d66dff);
   --mono:"SF Mono", ui-monospace, Menlo, monospace;
   --spring:cubic-bezier(.34,1.56,.64,1); --easeout:cubic-bezier(.22,1,.36,1);
@@ -289,3 +290,100 @@ textarea#saveIO { width:100%; height:70px; margin-top:8px; background:rgba(0,0,0
 #hud.show { opacity:1; transform:none; }
 #hudCash { font:800 16px inherit; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
 #hudRate { font:600 10px var(--mono); color:var(--muted); }
+#hudTokens { font:700 11px var(--mono); color:var(--chain); margin-top:2px; }
+
+/* ============================= world switch ============================= */
+#worldSwitch { display:none; gap:3px; padding:3px; border-radius:14px; background:rgba(255,255,255,.04);
+  border:1px solid var(--stroke); margin-right:4px; align-self:center; }
+#worldSwitch.show { display:flex; }
+.wbtn { width:34px; height:34px; border-radius:11px; border:0; cursor:pointer; font-size:16px;
+  background:transparent; color:var(--dim); display:grid; place-items:center; transition:all .2s var(--spring); }
+.wbtn:hover { color:var(--text); }
+.wbtn.on { background:var(--glass-hi); color:var(--text); box-shadow:0 0 0 1px var(--stroke-hi); }
+.wbtn.on[data-world="chain"] { color:var(--chain); box-shadow:0 0 0 1px rgba(57,212,200,.5), 0 0 14px rgba(57,212,200,.2); }
+.tab.w-hide { display:none !important; }
+
+/* ============================= blockchain world (--chain wireframe) ============================= */
+.chain-pane {
+  border-radius:4px; border-color:rgba(57,212,200,.28);
+  background:
+    repeating-linear-gradient(0deg, rgba(57,212,200,.05) 0, rgba(57,212,200,.05) 1px, transparent 1px, transparent 26px),
+    repeating-linear-gradient(90deg, rgba(57,212,200,.05) 0, rgba(57,212,200,.05) 1px, transparent 1px, transparent 26px),
+    var(--glass);
+  font-family:var(--mono);
+}
+.chain-pane .pane-bar { border-bottom-color:rgba(57,212,200,.25); }
+.chain-pane .pane-title { color:var(--chain); }
+.chain-cols { display:flex; gap:14px; align-items:flex-start; }
+.chain-pane.chain-feed-pane { flex:1; min-width:230px; max-width:280px; }
+.chain-pane:not(.chain-feed-pane) { flex:2; min-width:0; }
+@media (max-width:760px) { .chain-cols { flex-direction:column; } .chain-pane.chain-feed-pane { max-width:none; width:100%; } }
+
+/* validator rows — same skeleton as .tier, cyan/mono reskin */
+.validator {
+  display:flex; align-items:center; gap:13px; padding:12px 13px; border-radius:4px;
+  border:1px solid rgba(57,212,200,.2); background:rgba(57,212,200,.03); margin-bottom:9px;
+  position:relative; overflow:hidden; font-family:var(--mono);
+}
+.validator.producing::before {
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(90deg, transparent, rgba(57,212,200,.08), transparent);
+  animation:sweep 2.6s linear infinite;
+}
+.validator-glyph { width:46px; height:46px; border-radius:4px; display:grid; place-items:center;
+  font-size:22px; background:rgba(57,212,200,.08); border:1px solid rgba(57,212,200,.25); flex:none; z-index:1; }
+.v-name { font-weight:700; font-size:13.5px; color:var(--text); }
+.v-name .cur { font-size:10px; color:var(--chain); margin-left:6px; border:1px solid rgba(57,212,200,.4);
+  padding:1px 6px; border-radius:3px; text-transform:uppercase; letter-spacing:.05em; }
+.v-desc { color:var(--dim); font-size:11px; }
+.v-out { font:600 10.5px var(--mono); color:var(--chain); margin-top:3px; }
+.v-counts { text-align:right; font-family:var(--mono); font-size:11px; color:var(--dim); flex:none; z-index:1; }
+.v-counts .owned { font-size:15px; color:var(--text); font-weight:700; }
+button.vbuy {
+  padding:9px 12px; border-radius:4px; border:1px solid rgba(57,212,200,.25);
+  background:rgba(57,212,200,.05); color:var(--text); font:700 11.5px var(--mono); cursor:pointer;
+  transition:all .15s var(--spring); min-width:64px;
+}
+button.vbuy:hover:not(:disabled) { border-color:var(--chain); background:rgba(57,212,200,.14); transform:translateY(-2px); }
+button.vbuy:active:not(:disabled) { transform:scale(.94); }
+button.vbuy:disabled { opacity:.32; cursor:default; }
+button.vbuy .cost { display:block; font-size:9.5px; color:var(--dim); font-family:var(--mono); margin-top:2px; font-weight:500; }
+button.vbuy.affordable { border-color:rgba(57,212,200,.6); }
+button.vbuy.affordable .cost { color:var(--chain); }
+.validator.lockedv { opacity:.4; filter:grayscale(1); }
+
+/* smart contracts reuse .shop-item; cyan reskin only inside a chain-pane */
+.chain-pane .shop-item { border-radius:4px; border-color:rgba(57,212,200,.2); background:rgba(57,212,200,.03); font-family:var(--mono); }
+.chain-pane .shop-item:hover:not(.owned):not(.cant) { border-color:var(--chain); }
+.chain-pane .shop-item.owned { border-color:rgba(57,212,200,.5); background:rgba(57,212,200,.08); }
+.chain-pane .shop-item.owned::after { color:var(--chain); }
+.chain-pane .s-cost { color:var(--chain); }
+
+/* block feed ticker — cosmetic, driven by token rate */
+#blockFeed { height:360px; overflow-y:auto; display:flex; flex-direction:column-reverse; gap:6px;
+  font-family:var(--mono); scrollbar-width:thin; }
+.block-entry { font-size:10.5px; padding:7px 8px; border-radius:4px; border:1px solid rgba(57,212,200,.15);
+  background:rgba(57,212,200,.03); animation:msgIn .4s var(--spring) both; }
+.block-entry .b-hash { color:var(--chain); display:block; }
+.block-entry .b-meta { display:flex; justify-content:space-between; color:var(--dim); margin-top:3px; }
+.block-entry .b-reward { color:var(--good); font-weight:700; }
+
+/* ============================= AGI agents ============================= */
+.agi-slots { display:flex; gap:10px; margin-bottom:16px; }
+.agi-slot { flex:1; height:84px; border-radius:14px; border:1.5px dashed var(--stroke-hi);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  color:var(--dim); font-size:11px; transition:all .2s var(--spring); }
+.agi-slot.filled { border-style:solid; border-color:rgba(154,109,255,.5); background:rgba(154,109,255,.08); color:var(--text); cursor:pointer; }
+.agi-slot.filled:hover { border-color:var(--acc2); transform:translateY(-2px); }
+.agi-slot.drag-over { border-color:var(--good); background:rgba(74,222,128,.1); }
+.agi-slot .slot-glyph { font-size:22px; }
+.agi-slot .slot-name { font-weight:700; font-size:11.5px; }
+.agent-card { position:relative; }
+.agent-card.owned::after { content:none; } /* suppress the generic shop-item "✓" — EQUIPPED badge below replaces it */
+.agent-card.equipped { border-color:rgba(154,109,255,.55); background:rgba(154,109,255,.09); box-shadow:0 0 18px rgba(154,109,255,.14); }
+.agent-card.equipped::after { content:"EQUIPPED"; position:absolute; top:9px; right:11px; color:var(--acc2); font-weight:800; font-size:9px; letter-spacing:.05em; }
+.agent-card .a-title { color:var(--dim); font-size:10px; margin-top:-2px; margin-bottom:4px; font-style:italic; }
+.agent-card.silhouette { filter:grayscale(1); }
+.agent-card.silhouette .s-name { color:var(--dim); }
+.agent-card[draggable="true"] { cursor:grab; }
+.agent-card[draggable="true"]:active { cursor:grabbing; }
