@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Agent Simulator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="particles"></canvas>
+<div id="aurora"></div>
+<div id="app">
+  <header>
+    <div class="brand">Aura · Agent Simulator</div>
+    <div id="cash">$0</div>
+    <div id="rate">$0/sec</div>
+    <div><button id="goal"><span class="g-label">Next</span><span id="goalText">—</span><span class="g-hint" id="goalHint"></span><span class="g-go" id="goalGo">→</span></button></div>
+    <div class="pane" id="console">
+      <div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+        <span class="pane-title">swarm.live — your agents at work</span>
+        <span class="live-dot" id="liveDot"></span></div>
+      <div id="chatLog" aria-live="polite"></div>
+      <button id="clicker">▶ RUN SWARM PROMPT<span class="click-val" id="clickVal"></span></button>
+    </div>
+  </header>
+
+  <nav id="dock">
+    <div class="tab on" data-tab="agents">🤖<span class="tip">Agents</span></div>
+    <div class="tab" data-tab="upgrades">⚡<span class="tip">Upgrades</span></div>
+    <div class="tab locked" data-tab="compute" id="tabCompute">🖥️<span class="tip">Compute</span></div>
+    <div class="tab locked" data-tab="models" id="tabModels">🧠<span class="tip">Models</span></div>
+    <div class="tab locked" data-tab="singularity" id="tabSing">🌌<span class="tip">Singularity</span></div>
+    <div class="tab" data-tab="achievements">🏆<span class="tip">Achievements</span></div>
+    <div class="tab" data-tab="stats">📊<span class="tip">Stats & Saves</span></div>
+    <div class="tab" id="tabSound"><span id="soundIcon">🔊</span><span class="tip">Sound</span></div>
+  </nav>
+
+  <section class="panel on" data-panel="agents">
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">agents.swarm — deployment console</span></div>
+      <div class="pane-body" id="tiersPanel"></div></div>
+  </section>
+
+  <section class="panel" data-panel="upgrades">
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">upgrades.shop — capital expenditure</span></div>
+      <div class="pane-body"><div class="shop-grid" id="upgradesGrid"></div></div></div>
+  </section>
+
+  <section class="panel" data-panel="compute">
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">compute.cluster — prestige layer I</span></div>
+      <div class="pane-body">
+        <div class="prestige-hero">
+          <div class="p-title">🖥️ Rent Compute</div>
+          <div class="p-desc">Sell the company, keep the GPUs. Resets cash, agents, and upgrades.
+            Each compute point earned this cycle boosts ALL production.</div>
+          <div class="p-stat" id="computeStat">—</div>
+          <button class="p-btn" id="computeBtn">Prestige for Compute</button>
+          <div class="p-warn" id="computeWarn"></div>
+        </div>
+        <div class="shop-grid" id="computeShop"></div>
+      </div></div>
+  </section>
+
+  <section class="panel" data-panel="models">
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">frontier.lab — prestige layer II</span></div>
+      <div class="pane-body">
+        <div class="prestige-hero">
+          <div class="p-title">🧠 Train a Frontier Model</div>
+          <div class="p-desc">Requires a RECORD compute run — one reset that alone out-earns 2x everything
+            gathered this cycle. Training resets the compute layer; each version multiplies all production.</div>
+          <div class="model-badge" id="modelBadge">Model v0</div>
+          <div class="p-stat" id="modelStat">—</div>
+          <button class="p-btn" id="modelBtn">Train Model</button>
+          <div class="p-warn">Resets compute points &amp; shop (unless made permanent)</div>
+        </div>
+      </div></div>
+  </section>
+
+  <section class="panel" data-panel="singularity">
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">event.horizon — prestige layer III</span></div>
+      <div class="pane-body">
+        <div class="prestige-hero">
+          <div class="p-title">🌌 The Singularity</div>
+          <div class="p-desc">At Model v8 the curve escapes. Reset everything for Shards —
+            permanent meta-upgrades that persist forever.</div>
+          <div class="p-stat" id="singStat">—</div>
+          <button class="p-btn" id="singBtn">Trigger Singularity</button>
+          <div class="p-warn">Resets models, compute, cash — shards &amp; their upgrades are forever</div>
+        </div>
+        <div class="shop-grid" id="shardShop"></div>
+      </div></div>
+  </section>
+
+  <section class="panel" data-panel="achievements">
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">trophies.vault</span></div>
+      <div class="pane-body"><div id="achGrid"></div></div></div>
+  </section>
+
+  <section class="panel" data-panel="stats">
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">telemetry.stats</span></div>
+      <div class="pane-body" id="statsCard"></div></div>
+    <div class="pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">saves.vault</span></div>
+      <div class="pane-body">
+        <div class="set-row">
+          <button class="set-btn" id="btnExport">Export save</button>
+          <button class="set-btn" id="btnImport">Import save</button>
+          <button class="set-btn danger" id="btnReset">Hard reset</button>
+        </div>
+        <textarea id="saveIO" placeholder="Exported save appears here; paste a save then press Import"></textarea>
+      </div></div>
+  </section>
+</div>
+<div id="toasts"></div>
+
+<script src="game.js"></script>
+<script>
+'use strict';
+/* ============================ particles ============================ */
+const pc = document.getElementById('particles'), px = pc.getContext('2d');
+const P = Array.from({ length: 70 }, () => ({
+  x: Math.random() * innerWidth, y: Math.random() * innerHeight,
+  vx: (Math.random() - .5) * .2, vy: (Math.random() - .5) * .2,
+  r: Math.random() * 1.6 + .4, a: Math.random() * .45 + .12,
+}));
+function sizePc() { pc.width = innerWidth; pc.height = innerHeight; }
+sizePc(); addEventListener('resize', sizePc);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+(function drawP() {
+  px.clearRect(0, 0, pc.width, pc.height);
+  for (const p of P) {
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < 0) p.x = innerWidth; if (p.x > innerWidth) p.x = 0;
+    if (p.y < 0) p.y = innerHeight; if (p.y > innerHeight) p.y = 0;
+    px.beginPath(); px.arc(p.x, p.y, p.r, 0, 7);
+    px.fillStyle = `rgba(150,165,255,${p.a})`; px.fill();
+  }
+  for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+    const dx = P[i].x - P[j].x, dy = P[i].y - P[j].y, d = dx * dx + dy * dy;
+    if (d < 110 * 110) {
+      px.beginPath(); px.moveTo(P[i].x, P[i].y); px.lineTo(P[j].x, P[j].y);
+      px.strokeStyle = `rgba(126,141,255,${.07 * (1 - d / 12100)})`; px.stroke();
+    }
+  }
+  if (!reduceMotion) requestAnimationFrame(drawP);
+})();
+
+/* ============================ juice: toasts, gains, ripples, motes ============================ */
+ui.toast = (title, desc) => {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `<div class="t-t"></div><div class="t-d"></div>`;
+  t.querySelector('.t-t').textContent = title;
+  t.querySelector('.t-d').textContent = desc;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 400); }, 3800);
+};
+ui.clickFeedback = (gain, ev) => {
+  const tag = document.createElement('span');
+  tag.className = 'gain-tag';
+  tag.textContent = '+' + fmtCash(gain);
+  const x = ev && ev.clientX ? ev.clientX : innerWidth / 2, y = ev && ev.clientY ? ev.clientY : 260;
+  tag.style.left = (x + (Math.random() * 30 - 15)) + 'px';
+  tag.style.top = (y - 18) + 'px';
+  document.body.appendChild(tag);
+  tag.addEventListener('animationend', () => tag.remove());
+  swarmSpeak(gain); // every click makes the swarm respond — the interface IS the clicker
+};
+
+/* ============================ audio (WebAudio synth, no files) ============================ */
+// Two gain stages: `volumeGain` sets the fixed low default level, `muteGain`
+// is flipped instantly on toggle so in-flight notes cut off the moment you mute.
+let actx = null, muteGain = null, volumeGain = null;
+function ensureAudio() {
+  if (actx) return actx;
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    volumeGain = actx.createGain();
+    volumeGain.gain.value = 0.16; // low by default
+    muteGain = actx.createGain();
+    muteGain.gain.value = game.settings.soundOn ? 1 : 0;
+    volumeGain.connect(muteGain);
+    muteGain.connect(actx.destination);
+  } catch (e) { actx = null; }
+  return actx;
+}
+function playTone(freq, dur, opts = {}) {
+  if (!game.settings.soundOn) return;
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  const t0 = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = opts.type || 'sine';
+  osc.frequency.value = freq;
+  const g = ctx.createGain();
+  const peak = opts.gain != null ? opts.gain : 1;
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + (opts.attack || 0.006));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g); g.connect(volumeGain);
+  osc.start(t0); osc.stop(t0 + dur + 0.02);
+}
+ui.sfxBlip = () => { // swarm prompt click: soft blip, subtle pitch variation
+  const jitter = (Math.random() - 0.5) * 70;
+  playTone(520 + jitter, 0.09, { type: 'sine', gain: 0.9 });
+};
+ui.sfxTick = () => { // buy buttons: short percussive tick
+  playTone(1500, 0.035, { type: 'square', gain: 0.3, attack: 0.002 });
+};
+ui.sfxChime = () => { // achievement toast: two-note ascending chime
+  playTone(880, 0.14, { type: 'triangle', gain: 0.8 });
+  setTimeout(() => playTone(1318.5, 0.2, { type: 'triangle', gain: 0.8 }), 90);
+};
+const CHORD_ROOTS = [196.0, 164.81, 130.81]; // G3 (compute) -> E3 (model) -> C3 (singularity), deeper each tier
+ui.sfxChord = (depth) => { // prestige: deeper chord the further the layer
+  const root = CHORD_ROOTS[Math.min(depth, CHORD_ROOTS.length) - 1] || CHORD_ROOTS[CHORD_ROOTS.length - 1];
+  [1, 1.25, 1.5].forEach((r, i) => setTimeout(() => playTone(root * r, 0.9, { type: 'sine', gain: 0.5 }), i * 15));
+};
+ui.onSoundChange = (on) => {
+  if (muteGain) muteGain.gain.value = on ? 1 : 0; // instant — no fade, respects mute immediately
+  $('soundIcon').textContent = on ? '🔊' : '🔇';
+  save();
+};
+
+/* ============================ the swarm console ============================ */
+const SWARM = [
+  { name: 'Chatbot', glyph: '💬', color: '#6d8dff' },
+  { name: 'Copywriter', glyph: '✍️', color: '#9a6dff' },
+  { name: 'Coder', glyph: '🧑‍💻', color: '#4ade80' },
+  { name: 'Researcher', glyph: '🔬', color: '#fbbf24' },
+  { name: 'Manager', glyph: '🧭', color: '#d66dff' },
+  { name: 'Swarm', glyph: '🌐', color: '#f87171' },
+];
+const CHATTER = {
+  click: [
+    'On it. Closing the ticket—invoiced.', 'Draft shipped. Client paid instantly.',
+    'Refactored their whole checkout. Cha-ching.', 'Found a niche. Monetized it.',
+    'Upsold the enterprise tier mid-sentence.', 'That prompt? Billable hours.',
+    'Deployed to prod on a Friday. It held.', 'Wrote the report before they asked.',
+    'A/B test won. Both branches paid us.', 'Customer wanted a refund. Now they want two seats.',
+  ],
+  idle: [
+    'processing queue…', 'compounding quietly', 'tickets: cleared', 'margins: widening',
+    'pipeline warm', 'no anomalies, just profit', 'scaling politely', 'inbox zero achieved again',
+  ],
+  milestone: ['The %T fleet just hit a rhythm.', '%T synergy unlocked. It shows.', 'Another 25 %T online — they hum now.'],
+  prestige: ['Servers sold. GPUs kept. Again.', 'The cluster remembers everything.', 'Fresh start, same ambition.'],
+};
+const chatLog = document.getElementById('chatLog');
+let lastSpeaker = -1;
+function pushMsg(agent, text, gainStr, cls) {
+  const m = document.createElement('div');
+  m.className = 'cmsg' + (cls ? ' ' + cls : '');
+  m.innerHTML = `<span class="c-av"></span><span class="c-body"><b></b><span class="c-t"></span></span><span class="c-gain"></span>`;
+  const av = m.querySelector('.c-av');
+  av.textContent = agent.glyph;
+  av.style.background = agent.color + '22'; av.style.borderColor = agent.color + '55';
+  m.querySelector('b').textContent = agent.name;
+  m.querySelector('.c-t').textContent = ' ' + text;
+  if (gainStr) m.querySelector('.c-gain').textContent = gainStr;
+  chatLog.appendChild(m);
+  while (chatLog.children.length > 22) chatLog.removeChild(chatLog.firstChild);
+  chatLog.scrollTop = 1e9;
+}
+function activeAgentPool() {
+  // agents you actually own do the talking — the console reflects your empire
+  const owned = CONFIG.tiers.map((t, i) => i).filter(i => game.tiers[i].purchased > 0 || i === 0);
+  return owned.map(i => SWARM[i]);
+}
+function swarmSpeak(gain) {
+  const pool = activeAgentPool();
+  let idx = Math.floor(Math.random() * pool.length);
+  if (pool.length > 1 && idx === lastSpeaker) idx = (idx + 1) % pool.length;
+  lastSpeaker = idx;
+  pushMsg(pool[idx], CHATTER.click[Math.floor(Math.random() * CHATTER.click.length)], '+' + fmtCash(gain));
+}
+// autonomous chatter — production is a show you can watch
+setInterval(() => {
+  if (document.hidden) return;
+  const rate = cashPerSecond();
+  if (rate <= 0) return;
+  const pool = activeAgentPool();
+  const a = pool[Math.floor(Math.random() * pool.length)];
+  pushMsg(a, CHATTER.idle[Math.floor(Math.random() * CHATTER.idle.length)], '+' + fmtCash(rate * 2.5), 'idle');
+}, 2500);
+ui.milestoneChat = (tierName) => {
+  const t = CHATTER.milestone[Math.floor(Math.random() * CHATTER.milestone.length)].replace('%T', tierName);
+  pushMsg(SWARM[5], t, '', 'system');
+};
+ui.prestigeChat = () => pushMsg(SWARM[4], CHATTER.prestige[Math.floor(Math.random() * CHATTER.prestige.length)], '', 'system');
+// idle money motes — production is visible even when you touch nothing
+setInterval(() => {
+  if (reduceMotion || cashPerSecond() <= 0 || document.hidden) return;
+  const rows = document.querySelectorAll('.tier.producing');
+  if (!rows.length) return;
+  const r = rows[Math.floor(Math.random() * rows.length)].getBoundingClientRect();
+  if (!r.width) return;
+  const m = document.createElement('span');
+  m.className = 'mote';
+  m.textContent = '+$';
+  m.style.left = (r.left + 20 + Math.random() * (r.width - 60)) + 'px';
+  m.style.top = (r.top + 8) + 'px';
+  document.body.appendChild(m);
+  m.addEventListener('animationend', () => m.remove());
+}, 700);
+
+/* ============================ dock tabs ============================ */
+document.querySelectorAll('.tab[data-tab]').forEach(t => t.addEventListener('click', () => {
+  if (t.classList.contains('locked')) return;
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(x => x.classList.remove('on'));
+  t.classList.add('on'); t.querySelector('.dot')?.remove();
+  document.querySelector(`.panel[data-panel="${t.dataset.tab}"]`).classList.add('on');
+}));
+function unlockTab(id) {
+  const t = document.getElementById(id);
+  if (t.classList.contains('locked')) {
+    t.classList.remove('locked');
+    if (!t.querySelector('.dot')) t.insertAdjacentHTML('beforeend', '<span class="dot"></span>');
+  }
+}
+
+/* ============================ structure builders ============================ */
+const refs = { tiers: [], upgrades: {}, cshop: {}, sshop: {}, ach: {}, lastMilestones: [] };
+function buildTiers() {
+  const panel = document.getElementById('tiersPanel');
+  panel.innerHTML = ''; refs.tiers = [];
+  CONFIG.tiers.forEach((cfg, i) => {
+    const unlocked = i === 0 || game.tiers[i - 1].purchased >= 1;
+    const row = document.createElement('div');
+    if (!unlocked) {
+      row.className = 'tier lockedt';
+      row.innerHTML = `<div class="tier-glyph">🔒</div><div class="grow">
+        <div class="t-name">???</div><div class="t-desc">Deploy a ${CONFIG.tiers[i - 1].name} to reveal</div></div>`;
+      panel.appendChild(row);
+      refs.tiers.push(null);
+      return;
+    }
+    row.className = 'tier';
+    row.innerHTML = `
+      <div class="tier-glyph">${cfg.glyph}</div>
+      <div class="grow">
+        <div class="t-name">${cfg.name}<span class="mult"></span></div>
+        <div class="t-desc">${cfg.desc}</div>
+        <div class="t-mile"><i></i></div>
+      </div>
+      <div class="t-counts"><div class="owned"></div><div class="bought"></div></div>
+      <div class="buy-col">
+        <button class="buy" data-n="1">x1<span class="cost"></span></button>
+        <button class="buy" data-n="10">x10<span class="cost"></span></button>
+        <button class="buy" data-n="max">Max<span class="cost"></span></button>
+      </div>`;
+    row.querySelectorAll('.buy').forEach(b => b.addEventListener('click', () => {
+      if (buyTier(i, b.dataset.n === 'max' ? 'max' : parseInt(b.dataset.n, 10))) ui.sfxTick();
+    }));
+    panel.appendChild(row);
+    refs.tiers.push({
+      row, mult: row.querySelector('.mult'), owned: row.querySelector('.owned'),
+      bought: row.querySelector('.bought'), mile: row.querySelector('.t-mile i'),
+      btns: [...row.querySelectorAll('.buy')],
+    });
+  });
+  refs.lastMilestones = CONFIG.tiers.map((_, i) => Math.floor(game.tiers[i].purchased / CONFIG.milestone.per));
+}
+function buildShop(gridId, items, buyFn, costLabel, store) {
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = '';
+  for (const it of items) {
+    const d = document.createElement('div');
+    d.className = 'shop-item';
+    d.innerHTML = `<div class="s-name">${it.name}</div><div class="s-desc">${it.desc}</div>
+      <div class="s-cost">${costLabel(it)}</div>`;
+    d.addEventListener('click', () => { if (buyFn(it.id)) ui.sfxTick(); });
+    grid.appendChild(d);
+    store[it.id] = d;
+  }
+}
+function buildAchievements() {
+  const grid = document.getElementById('achGrid');
+  grid.innerHTML = '';
+  for (const a of CONFIG.achievements) {
+    const d = document.createElement('div');
+    d.className = 'ach';
+    d.innerHTML = `<div class="a-name">${a.name}</div><div class="a-desc">${a.desc}</div>`;
+    grid.appendChild(d);
+    refs.ach[a.id] = d;
+  }
+}
+function rebuildStructure() {
+  buildTiers();
+  buildShop('upgradesGrid', CONFIG.upgrades, buyUpgrade, it => fmtCash(it.cost), refs.upgrades);
+  buildShop('computeShop', CONFIG.compute.shop, buyComputeShop, it => fmt(it.cost) + ' compute', refs.cshop);
+  buildShop('shardShop', CONFIG.singularity.shop, buyShardShop, it => fmt(it.cost) + ' shards', refs.sshop);
+  buildAchievements();
+  ui.dirtyStructure = false;
+}
+
+/* ============================ render (in place, eased) ============================ */
+const $ = id => document.getElementById(id);
+function updateShopStates(items, store, ownedFn, canFn) {
+  for (const it of items) {
+    const d = store[it.id]; if (!d) continue;
+    const owned = !!ownedFn(it.id);
+    d.classList.toggle('owned', owned);
+    d.classList.toggle('cant', !owned && !canFn(it));
+  }
+}
+let shownCash = 0;
+function render() {
+  if (ui.dirtyStructure) rebuildStructure();
+  // eased count-up: the number glides, which reads as "alive"
+  shownCash += (game.cash - shownCash) * 0.35;
+  if (Math.abs(shownCash - game.cash) < Math.max(1, game.cash * 1e-6)) shownCash = game.cash;
+  $('cash').textContent = fmtCash(shownCash);
+  $('rate').textContent = fmtCash(cashPerSecond()) + '/sec · click ' + fmtCash(clickPower());
+  const goal = nextGoal();
+  $('goalText').textContent = goal.text; $('goalHint').textContent = goal.hint;
+  $('goal').dataset.action = goal.action;
+  $('goal').classList.toggle('ready', !!goal.ready);
+  $('goalGo').textContent = goal.ready ? '✦ do it' : '→';
+  $('clickVal').textContent = '+' + fmtCash(clickPower()) + ' per run';
+
+  const rate = cashPerSecond();
+  refs.tiers.forEach((r, i) => {
+    if (!r) return;
+    const t = game.tiers[i];
+    r.row.classList.toggle('producing', t.owned > 0);
+    r.owned.textContent = fmt(t.owned) + ' active';
+    r.bought.textContent = fmt(t.purchased) + ' deployed';
+    const mm = Math.floor(t.purchased / CONFIG.milestone.per);
+    r.mult.textContent = mm > 0 ? `×${fmt(Math.pow(CONFIG.milestone.mult, mm))}` : '';
+    r.mile.style.width = (t.purchased % CONFIG.milestone.per) / CONFIG.milestone.per * 100 + '%';
+    if (mm > refs.lastMilestones[i]) { // milestone celebration pulse + swarm reacts
+      refs.lastMilestones[i] = mm;
+      r.row.classList.remove('milestone-pop'); void r.row.offsetWidth;
+      r.row.classList.add('milestone-pop');
+      ui.milestoneChat(CONFIG.tiers[i].name);
+    }
+    r.btns.forEach(b => {
+      const n = b.dataset.n === 'max' ? tierMaxAffordable(i) : parseInt(b.dataset.n, 10);
+      const cost = n > 0 ? tierCostN(i, t.purchased, n) : tierCost(i, t.purchased);
+      const can = n > 0 && cost <= game.cash;
+      b.querySelector('.cost').textContent = fmtCash(cost);
+      b.disabled = !can;
+      b.classList.toggle('affordable', can);
+      if (b.dataset.n === 'max') b.firstChild.textContent = n > 0 ? `Max ${fmt(n)}` : 'Max';
+    });
+  });
+  CONFIG.tiers.forEach((cfg, i) => {
+    if (!refs.tiers[i] && (i === 0 || game.tiers[i - 1].purchased >= 1)) ui.dirtyStructure = true;
+  });
+
+  updateShopStates(CONFIG.upgrades, refs.upgrades, id => game.upgrades[id], it => game.cash >= it.cost);
+  updateShopStates(CONFIG.compute.shop, refs.cshop, id => game.compute.shop[id], it => game.compute.points >= it.cost);
+  updateShopStates(CONFIG.singularity.shop, refs.sshop, id => game.singularity.shop[id], it => game.singularity.shards >= it.cost);
+
+  if (game.cashThisRun >= CONFIG.compute.unlockCash * 0.01 || game.stats.computeResets > 0) unlockTab('tabCompute');
+  if (game.stats.computeResets > 0) unlockTab('tabModels');
+  if (game.models.level >= CONFIG.singularity.unlockModelLevel - 2 || game.stats.singularities > 0) unlockTab('tabSing');
+
+  const cg = computeGain();
+  $('computeStat').textContent = cg > 0
+    ? `Prestige now: +${fmt(cg)} compute (have ${fmt(game.compute.points)} · cycle ${fmt(game.compute.thisModelEarned)})`
+    : `Reach ${fmtCash(CONFIG.compute.unlockCash)} this run (${fmtCash(game.cashThisRun)})`;
+  $('computeBtn').disabled = cg <= 0;
+  $('computeBtn').classList.toggle('ready', cg > 0);
+  $('computeWarn').textContent = cg > 0 && cg < 2 * game.compute.thisModelEarned
+    ? 'Not a record run — counts for points, not toward Model training' : '';
+
+  $('modelBadge').textContent = `Model v${game.models.level}`;
+  $('modelStat').textContent = `Record run: ${fmt(game.compute.bestGain)} / ${fmt(modelRequirement(game.models.level))} for v${game.models.level + 1}`;
+  $('modelBtn').disabled = !canTrainModel();
+  $('modelBtn').classList.toggle('ready', canTrainModel());
+
+  $('singStat').textContent = canSingularity()
+    ? `Trigger now: +${fmt(singularityShards())} shards (have ${fmt(game.singularity.shards)})`
+    : `Requires Model v${CONFIG.singularity.unlockModelLevel} (at v${game.models.level}) · have ${fmt(game.singularity.shards)} shards`;
+  $('singBtn').disabled = !canSingularity();
+  $('singBtn').classList.toggle('ready', canSingularity());
+
+  for (const a of CONFIG.achievements) refs.ach[a.id]?.classList.toggle('got', !!game.achievements[a.id]);
+
+  $('statsCard').innerHTML = `
+    <div class="stat-line"><span>Lifetime earnings</span><b>${fmtCash(game.lifetimeCash)}</b></div>
+    <div class="stat-line"><span>This run</span><b>${fmtCash(game.cashThisRun)}</b></div>
+    <div class="stat-line"><span>Manual prompts</span><b>${fmt(game.totalClicks)}</b></div>
+    <div class="stat-line"><span>Compute prestiges</span><b>${fmt(game.stats.computeResets)}</b></div>
+    <div class="stat-line"><span>Models trained</span><b>${fmt(game.stats.modelResets)}</b></div>
+    <div class="stat-line"><span>Singularities</span><b>${fmt(game.stats.singularities)}</b></div>
+    <div class="stat-line"><span>Achievements</span><b>${Object.keys(game.achievements).length}/${CONFIG.achievements.length} (+${Math.round((achievementMult() - 1) * 100)}%)</b></div>
+    <div class="stat-line"><span>Playtime</span><b>${(game.stats.playtime / 3600).toFixed(1)}h</b></div>`;
+}
+
+/* ============================ wire ============================ */
+$('clicker').addEventListener('click', e => manualClick(e));
+function switchTab(name) {
+  const tabEl = document.querySelector(`.tab[data-tab="${name}"]`);
+  if (tabEl && !tabEl.classList.contains('locked')) {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(x => x.classList.remove('on'));
+    tabEl.classList.add('on');
+    document.querySelector(`.panel[data-panel="${name}"]`)?.classList.add('on');
+  }
+}
+// the goal pill DOES the goal — meet the click, don't just describe it
+$('goal').addEventListener('click', () => {
+  const a = $('goal').dataset.action || '';
+  if (a.startsWith('buyTier:')) {
+    const i = parseInt(a.split(':')[1], 10);
+    if (buyTier(i, 1)) ui.sfxTick(); else switchTab('agents');
+  } else if (a === 'compute') {
+    if (doComputeReset()) { ui.toast('🖥️ Compute rented', 'All production boosted this cycle'); ui.prestigeChat(); }
+    else switchTab('compute');
+  } else if (a === 'model') {
+    if (doModelReset()) { ui.toast('🧠 Model trained', `Now at v${game.models.level}`); ui.prestigeChat(); }
+    else switchTab('models');
+  } else if (a === 'sing') {
+    switchTab('singularity'); // singularity always goes through its confirm button
+  } else if (a.startsWith('tab:')) switchTab(a.split(':')[1]);
+});
+$('computeBtn').addEventListener('click', () => {
+  if (doComputeReset()) { ui.toast('🖥️ Compute rented', 'All production boosted this cycle'); ui.prestigeChat(); }
+});
+$('modelBtn').addEventListener('click', () => {
+  if (doModelReset()) { ui.toast('🧠 Model trained', `Now at v${game.models.level}`); ui.prestigeChat(); }
+});
+$('singBtn').addEventListener('click', () => {
+  if (confirm('Trigger the Singularity? Everything resets except Shards and their upgrades.') && doSingularity())
+    ui.toast('🌌 SINGULARITY', 'Shards acquired — spend them wisely');
+});
+$('btnExport').addEventListener('click', () => { $('saveIO').value = exportSave(); });
+$('btnImport').addEventListener('click', () => {
+  if (importSave($('saveIO').value)) { ui.dirtyStructure = true; ui.toast('💾 Save imported', 'Welcome back'); }
+  else ui.toast('⚠️ Import failed', 'That save string is invalid');
+});
+$('btnReset').addEventListener('click', () => {
+  if (confirm('Hard reset — wipe EVERYTHING?') && confirm('Really? No shards, no achievements, nothing survives.')) {
+    hardReset(); ui.toast('☠️ Hard reset', 'Fresh start');
+  }
+});
+$('tabSound').addEventListener('click', () => { ensureAudio(); toggleSound(); });
+
+/* ============================ boot ============================ */
+const offline = load();
+rebuildStructure();
+$('soundIcon').textContent = game.settings.soundOn ? '🔊' : '🔇';
+shownCash = game.cash;
+pushMsg(SWARM[5], 'Swarm online. Run a prompt to start earning.', '', 'system');
+if (offline && offline.offlineSecs > 60) {
+  ui.toast('⏰ While you were away', `${(offline.offlineSecs / 3600).toFixed(1)}h → earned ${fmtCash(offline.offlineCash)}`);
+}
+setInterval(() => tick(1 / CONFIG.tickRate), 1000 / CONFIG.tickRate);
+setInterval(checkAchievements, 1000);
+setInterval(save, CONFIG.autosaveMs);
+addEventListener('beforeunload', save);
+(function frame() {
+  try { render(); }
+  catch (e) { console.error('render error (UI kept alive):', e); }
+  setTimeout(frame, 100); // 10fps — smooth easing, still cheap
+})();
+</script>
+</body>
+</html>
