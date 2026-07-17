@@ -117,6 +117,7 @@
       </div></div>
   </section>
 </div>
+<div id="hud"><div id="hudCash"></div><div id="hudRate"></div></div>
 <div id="toasts"></div>
 
 <script src="game.js"></script>
@@ -422,6 +423,9 @@ function render() {
   if (Math.abs(shownCash - game.cash) < Math.max(1, game.cash * 1e-6)) shownCash = game.cash;
   $('cash').textContent = fmtCash(shownCash);
   $('rate').textContent = fmtCash(cashPerSecond()) + '/sec · click ' + fmtCash(clickPower());
+  $('hudCash').textContent = fmtCash(shownCash);
+  $('hudRate').textContent = '+' + fmtCash(cashPerSecond()) + '/sec';
+  $('hud').classList.toggle('show', (window.scrollY || 0) > 180);
   const goal = nextGoal();
   $('goalText').textContent = goal.text; $('goalHint').textContent = goal.hint;
   $('goal').dataset.action = goal.action;
