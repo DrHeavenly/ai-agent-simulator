@@ -1,0 +1,23 @@
+{
+  "name": "ai-agent-simulator",
+  "version": "1.0.0",
+  "description": "AI Agent Simulator - An incremental game about scaling AI agents",
+  "main": "game.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DrHeavenly/ai-agent-simulator.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DrHeavenly/ai-agent-simulator/issues"
+  },
+  "homepage": "https://github.com/DrHeavenly/ai-agent-simulator#readme",
+  "dependencies": {
+    "@vercel/speed-insights": "^2.0.0"
+  }
+}
