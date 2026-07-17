@@ -11,7 +11,9 @@ const CONFIG = {
   tickRate: 10,
   autosaveMs: 10000,
   numberCap: 1e300,
-  clickBase: 1, // $ per manual prompt
+  clickBase: 1,
+  clickShareBase: 0.005, // every click also earns 0.5% of $/sec, so clicking never goes obsolete
+  cascadeRate: 0.04, // higher tiers produce lower tiers at this fraction/sec per unit // $ per manual prompt
   tiers: [
     { id: 'chatbot',    name: 'Chatbot',        desc: 'Answers tickets for pennies', baseCost: 10,      costMult: 1.16, glyph: '💬' },
     { id: 'copywriter', name: 'Copywriter',     desc: 'Produces Chatbots\' scripts', baseCost: 600,     costMult: 1.19, glyph: '✍️' },
@@ -24,11 +26,11 @@ const CONFIG = {
   costScaling: { softStart: 130, factor: 1.012, exp: 1.5 }, // progressive cost growth past 130 purchases
   upgrades: [ // cash upgrades — reset on Compute prestige
     { id: 'gpu1',   name: 'Consumer GPUs',    desc: 'All agents x2',            cost: 5e3,   mult: { all: 2 } },
-    { id: 'prompt', name: 'Prompt Library',   desc: 'Clicking x10',             cost: 2e4,   mult: { click: 10 } },
+    { id: 'prompt', name: 'Prompt Library',   desc: 'Clicking x10 and +1.5% of $/s per click', cost: 2e4, mult: { click: 10, clickRate: 0.015 } },
     { id: 'gpu2',   name: 'Datacenter Racks', desc: 'All agents x3',            cost: 5e6,   mult: { all: 3 } },
     { id: 'api',    name: 'API Reselling',    desc: 'Chatbots x5',              cost: 8e7,   mult: { tier0: 5 } },
     { id: 'gpu3',   name: 'Custom Silicon',   desc: 'All agents x4',            cost: 1e10,  mult: { all: 4 } },
-    { id: 'viral',  name: 'Viral Demo',       desc: 'Clicking earns 2% of $/s', cost: 5e11,  mult: { clickRate: 0.02 } },
+    { id: 'viral',  name: 'Viral Demo',       desc: 'Clicks earn +3% of $/s',   cost: 5e11,  mult: { clickRate: 0.03 } },
     { id: 'gpu4',   name: 'Orbital Compute',  desc: 'All agents x6',            cost: 2e13,  mult: { all: 6 } },
   ],
   compute: { // layer 2
@@ -151,12 +153,46 @@ function tierMult(i) {
   for (const u of CONFIG.upgrades) if (game.upgrades[u.id] && u.mult['tier' + i]) m *= u.mult['tier' + i];
   return m;
 }
-function clickPower() {
+function clickShare() {
+  let share = CONFIG.clickShareBase;
+  for (const u of CONFIG.upgrades) if (game.upgrades[u.id] && u.mult.clickRate) share += u.mult.clickRate;
+  return share;
+}
+function clickFlat() {
   let p = CONFIG.clickBase;
   for (const u of CONFIG.upgrades) if (game.upgrades[u.id] && u.mult.click) p *= u.mult.click;
-  let bonus = 0;
-  for (const u of CONFIG.upgrades) if (game.upgrades[u.id] && u.mult.clickRate) bonus += u.mult.clickRate * cashPerSecond();
-  return p * achievementMult() + bonus;
+  return p * achievementMult();
+}
+function clickPower() {
+  return clickFlat() + clickShare() * cashPerSecond();
+}
+// full transparency for strategists: every number that feeds a decision
+function statBreakdown() {
+  return {
+    upgradesMult: upgradeAllMult(),
+    computeMult: computeMult(),
+    modelMult: modelMult(),
+    achMult: achievementMult(),
+    singMult: singularityMult(),
+    globalMult: globalMult(),
+    clickFlat: clickFlat(),
+    clickShare: clickShare(),
+    computeGainFormula: 'floor((cashRun / ' + fmt(CONFIG.compute.unlockCash) + ')^' + CONFIG.compute.gainExp + ' / sqrt(1 + cycleEarned/150))',
+    computeBonusRule: '+' + (CONFIG.compute.bonusPerPoint * 100) + '% ALL per compute point earned this cycle (linear to 300, then ^0.45)',
+    modelReqFormula: fmt(CONFIG.models.unlockBestGain) + ' x ' + CONFIG.models.reqMult + '^(level^' + CONFIG.models.reqCurve + ') as ONE record run',
+    milestoneRule: 'every ' + CONFIG.milestone.per + ' purchased: that tier x' + CONFIG.milestone.mult,
+    costScaleRule: 'past ' + CONFIG.costScaling.softStart + ' purchases, costs also grow x' + CONFIG.costScaling.factor + '^(extra^' + CONFIG.costScaling.exp + ')',
+    recordRule: 'a reset is a RECORD only if its gain >= 2x compute earned before it this cycle',
+    shardRule: 'shards = (modelLevel - 7)^2 at Singularity',
+    achEach: '+' + (game.singularity.shop.achpower ? 5 : CONFIG.achievementBonus * 100) + '% ALL per achievement',
+    cascadeRule: 'each unit of a tier makes ' + CONFIG.cascadeRate + '/sec of the tier below (x its multipliers)',
+  };
+}
+// cash needed for the next +1 compute point (at current cycle earnings)
+function cashForNextComputePoint() {
+  const g = computeGain();
+  const dim = Math.sqrt(1 + game.compute.thisModelEarned / 150);
+  return CONFIG.compute.unlockCash * Math.pow((g + 1) * dim, 1 / CONFIG.compute.gainExp);
 }
 function cashPerSecond() {
   return clampN(game.tiers[0].owned * tierMult(0) * globalMult());
@@ -302,7 +338,7 @@ function tick(dt) {
     if (owned <= 0) continue;
     const produced = owned * tierMult(i) * gm * dt;
     if (i === 0) cashGain += produced;
-    else gains[i - 1] += produced * 0.04; // higher tiers feed slowly — AD pacing, not instant blowup
+    else gains[i - 1] += produced * CONFIG.cascadeRate; // higher tiers feed slowly — AD pacing, not instant blowup
   }
   for (let i = 0; i < gains.length; i++) game.tiers[i].owned = clampN(game.tiers[i].owned + gains[i]);
   addCash(cashGain);
@@ -442,6 +478,31 @@ function nextGoal() {
            action: 'tab:compute', ready: false };
 }
 
+/* ============================== transparency helpers ============================== */
+// Cash needed this run for a compute gain of g, inverting the gain formula
+// (uses the CURRENT cycle's diminishing factor; gain is floored, so treat as ≥).
+function cashForComputeGain(g) {
+  const dim = Math.sqrt(1 + game.compute.thisModelEarned / 150);
+  return CONFIG.compute.unlockCash * Math.pow(g * dim, 1 / CONFIG.compute.gainExp);
+}
+// Per-unit output of tier i per second, with every multiplier applied.
+// Tiers above 0 produce at cascadeRate — omitting it overstated output x25.
+function tierUnitOutput(i) {
+  const base = tierMult(i) * globalMult();
+  return i === 0 ? base : base * CONFIG.cascadeRate;
+}
+// Every factor of the global multiplier, separated for display.
+function multBreakdown() {
+  return {
+    upgrades: upgradeAllMult(),
+    compute: computeMult(),
+    models: modelMult(),
+    achievements: achievementMult(),
+    singularity: singularityMult(),
+    total: globalMult(),
+  };
+}
+
 /* exported for the page + tests */
 if (typeof module !== 'undefined') module.exports = {
   CONFIG, get game() { return game; }, freshState, tick, manualClick, buyTier, buyUpgrade,
@@ -449,5 +510,7 @@ if (typeof module !== 'undefined') module.exports = {
   canTrainModel, canSingularity, singularityShards, modelRequirement, cashPerSecond, clickPower,
   checkAchievements, save, load, exportSave, importSave, hardReset, toggleSound, fmt, fmtCash, nextGoal,
   tierCost, tierCostN, tierMaxAffordable, globalMult, tierMult, ui, addCash,
+  statBreakdown, cashForNextComputePoint, clickShare, clickFlat,
+  cashForComputeGain, tierUnitOutput, multBreakdown,
   _setGame: g => { game = g; },
 };

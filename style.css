@@ -95,35 +95,7 @@ button#goal.ready .g-go { color:var(--good); }
 #clicker:active { transform:scale(.985); filter:brightness(.95); }
 .click-val { display:block; font:600 10.5px var(--mono); letter-spacing:0; opacity:.85; margin-top:3px; }
 
-/* ---- the orb clicker (legacy, kept for ring animation reuse) ---- */
-#orbWrap { position:relative; width:130px; margin:22px auto 6px; }
-#clicker {
-  width:130px; height:130px; border-radius:50%; border:0; cursor:pointer; position:relative;
-  background:radial-gradient(circle at 32% 28%, #b9c8ff 0%, #7d94ff 28%, #7a5cff 62%, #3c2f8f 100%);
-  box-shadow:0 0 44px rgba(126,109,255,.5), 0 0 130px rgba(126,109,255,.22),
-             inset 0 -8px 22px rgba(0,0,0,.35), inset 0 6px 14px rgba(255,255,255,.35);
-  transition:transform .16s var(--spring), box-shadow .3s;
-  animation:orbBreathe 3.2s ease-in-out infinite;
-}
-@keyframes orbBreathe { 50% { box-shadow:0 0 62px rgba(126,109,255,.65), 0 0 170px rgba(126,109,255,.3),
-  inset 0 -8px 22px rgba(0,0,0,.35), inset 0 6px 14px rgba(255,255,255,.35); } }
-#clicker:hover { transform:scale(1.05); }
-#clicker:active { transform:scale(.93); animation:none; }
-#clicker .k-label {
-  position:absolute; inset:0; display:grid; place-items:center; color:#fff;
-  font:800 13px/1.3 inherit; letter-spacing:.08em; text-transform:uppercase;
-  text-shadow:0 2px 8px rgba(0,0,0,.45); pointer-events:none;
-}
-#clicker::after { /* gloss */
-  content:""; position:absolute; left:18px; top:10px; width:70%; height:34%;
-  border-radius:50%; background:linear-gradient(rgba(255,255,255,.55), rgba(255,255,255,.03));
-  pointer-events:none;
-}
-.orb-ring { /* click ripple ring */
-  position:absolute; inset:0; border-radius:50%; border:2px solid rgba(150,165,255,.7);
-  pointer-events:none; animation:ring .6s var(--easeout) forwards;
-}
-@keyframes ring { to { transform:scale(1.75); opacity:0; } }
+@keyframes orbBreathe { 50% { opacity:.55; } }
 
 /* ============================= dock (nav) ============================= */
 #dock {
@@ -299,3 +271,9 @@ textarea#saveIO { width:100%; height:70px; margin-top:8px; background:rgba(0,0,0
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; }
 }
+
+/* transparency additions */
+.t-out { font:600 10.5px var(--mono); color:var(--acc); margin-top:3px; }
+.t-mile-txt { font:500 9.5px var(--mono); color:var(--dim); margin-top:3px; }
+.stat-h { margin:14px 0 4px; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--acc2); font-weight:800; }
+.formula { font:11px var(--mono); color:var(--muted); padding:4px 0; border-bottom:1px dashed rgba(255,255,255,.06); }

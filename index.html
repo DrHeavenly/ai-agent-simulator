@@ -349,6 +349,7 @@ function buildTiers() {
       <div class="grow">
         <div class="t-name">${cfg.name}<span class="mult"></span></div>
         <div class="t-desc">${cfg.desc}</div>
+        <div class="t-detail"></div>
         <div class="t-mile"><i></i></div>
       </div>
       <div class="t-counts"><div class="owned"></div><div class="bought"></div></div>
@@ -362,7 +363,8 @@ function buildTiers() {
     }));
     panel.appendChild(row);
     refs.tiers.push({
-      row, mult: row.querySelector('.mult'), owned: row.querySelector('.owned'),
+      row, mult: row.querySelector('.mult'), detail: row.querySelector('.t-detail'),
+      owned: row.querySelector('.owned'),
       bought: row.querySelector('.bought'), mile: row.querySelector('.t-mile i'),
       btns: [...row.querySelectorAll('.buy')],
     });
@@ -437,6 +439,15 @@ function render() {
     const mm = Math.floor(t.purchased / CONFIG.milestone.per);
     r.mult.textContent = mm > 0 ? `×${fmt(Math.pow(CONFIG.milestone.mult, mm))}` : '';
     r.mile.style.width = (t.purchased % CONFIG.milestone.per) / CONFIG.milestone.per * 100 + '%';
+    // minmax line: per-unit output, next milestone count, cost growth — no hidden math
+    const into = i === 0 ? '$' : CONFIG.tiers[i - 1].name;
+    const toNext = CONFIG.milestone.per - (t.purchased % CONFIG.milestone.per);
+    const wall = t.purchased >= CONFIG.costScaling.softStart
+      ? ` · cost wall ACTIVE (+${CONFIG.costScaling.factor}^(n-${CONFIG.costScaling.softStart})^${CONFIG.costScaling.exp})`
+      : ` · cost wall at ${CONFIG.costScaling.softStart} deployed`;
+    r.detail.textContent =
+      `1 unit → ${fmt(tierUnitOutput(i))} ${into}/s · ${toNext} more → ×${CONFIG.milestone.mult}` +
+      ` · cost ×${CONFIG.tiers[i].costMult}/buy${wall}`;
     if (mm > refs.lastMilestones[i]) { // milestone celebration pulse + swarm reacts
       refs.lastMilestones[i] = mm;
       r.row.classList.remove('milestone-pop'); void r.row.offsetWidth;
@@ -466,16 +477,24 @@ function render() {
   if (game.models.level >= CONFIG.singularity.unlockModelLevel - 2 || game.stats.singularities > 0) unlockTab('tabSing');
 
   const cg = computeGain();
-  $('computeStat').textContent = cg > 0
+  $('computeStat').textContent = (cg > 0
     ? `Prestige now: +${fmt(cg)} compute (have ${fmt(game.compute.points)} · cycle ${fmt(game.compute.thisModelEarned)})`
-    : `Reach ${fmtCash(CONFIG.compute.unlockCash)} this run (${fmtCash(game.cashThisRun)})`;
+    : `Reach ${fmtCash(CONFIG.compute.unlockCash)} this run (${fmtCash(game.cashThisRun)})`)
+    + ` · next +1: ${fmtCash(cashForComputeGain(cg + 1))}`;
   $('computeBtn').disabled = cg <= 0;
   $('computeBtn').classList.toggle('ready', cg > 0);
-  $('computeWarn').textContent = cg > 0 && cg < 2 * game.compute.thisModelEarned
-    ? 'Not a record run — counts for points, not toward Model training' : '';
+  const cwParts = [];
+  if (cg > 0 && cg < 2 * game.compute.thisModelEarned) cwParts.push('NOT a record run (gain must be >= ' + fmt(2 * game.compute.thisModelEarned) + ')');
+  cwParts.push('next +1 compute at ' + fmtCash(cashForComputeGain(cg + 1)) + ' this run');
+  const mreq = modelRequirement(game.models.level);
+  cwParts.push('record for v' + (game.models.level + 1) + ' needs a single reset of ' + fmt(mreq) + ' (~' + fmtCash(cashForComputeGain(mreq)) + ')');
+  $('computeWarn').textContent = cwParts.join(' · ');
 
   $('modelBadge').textContent = `Model v${game.models.level}`;
-  $('modelStat').textContent = `Record run: ${fmt(game.compute.bestGain)} / ${fmt(modelRequirement(game.models.level))} for v${game.models.level + 1}`;
+  $('modelStat').textContent =
+    `Record run: ${fmt(game.compute.bestGain)} / ${fmt(modelRequirement(game.models.level))} for v${game.models.level + 1}` +
+    ` · that record needs ≈${fmtCash(cashForComputeGain(modelRequirement(game.models.level)))} in ONE run` +
+    ` (and must be ≥2× cycle compute at reset)`;
   $('modelBtn').disabled = !canTrainModel();
   $('modelBtn').classList.toggle('ready', canTrainModel());
 
@@ -487,6 +506,7 @@ function render() {
 
   for (const a of CONFIG.achievements) refs.ach[a.id]?.classList.toggle('got', !!game.achievements[a.id]);
 
+  const bd = statBreakdown();
   $('statsCard').innerHTML = `
     <div class="stat-line"><span>Lifetime earnings</span><b>${fmtCash(game.lifetimeCash)}</b></div>
     <div class="stat-line"><span>This run</span><b>${fmtCash(game.cashThisRun)}</b></div>
@@ -495,7 +515,24 @@ function render() {
     <div class="stat-line"><span>Models trained</span><b>${fmt(game.stats.modelResets)}</b></div>
     <div class="stat-line"><span>Singularities</span><b>${fmt(game.stats.singularities)}</b></div>
     <div class="stat-line"><span>Achievements</span><b>${Object.keys(game.achievements).length}/${CONFIG.achievements.length} (+${Math.round((achievementMult() - 1) * 100)}%)</b></div>
-    <div class="stat-line"><span>Playtime</span><b>${(game.stats.playtime / 3600).toFixed(1)}h</b></div>`;
+    <div class="stat-line"><span>Playtime</span><b>${(game.stats.playtime / 3600).toFixed(1)}h</b></div>
+    <div class="stat-h">Multiplier breakdown (all multiply together)</div>
+    <div class="stat-line"><span>Cash upgrades</span><b>x${fmt(bd.upgradesMult)}</b></div>
+    <div class="stat-line"><span>Compute (this cycle)</span><b>x${fmt(bd.computeMult)}</b></div>
+    <div class="stat-line"><span>Model versions</span><b>x${fmt(bd.modelMult)}</b></div>
+    <div class="stat-line"><span>Achievements</span><b>x${bd.achMult.toFixed(2)}</b></div>
+    <div class="stat-line"><span>Singularity</span><b>x${fmt(bd.singMult)}</b></div>
+    <div class="stat-line"><span>= GLOBAL</span><b>x${fmt(bd.globalMult)}</b></div>
+    <div class="stat-line"><span>Click = flat + share of $/s</span><b>${fmtCash(bd.clickFlat)} + ${(bd.clickShare * 100).toFixed(1)}%</b></div>
+    <div class="stat-h">The rules — exact formulas, no hidden math</div>
+    <div class="formula">Compute gain = ${bd.computeGainFormula}</div>
+    <div class="formula">${bd.computeBonusRule}</div>
+    <div class="formula">Model v(n+1) record required: ${bd.modelReqFormula}</div>
+    <div class="formula">${bd.recordRule}</div>
+    <div class="formula">${bd.milestoneRule} · ${bd.achEach}</div>
+    <div class="formula">${bd.costScaleRule}</div>
+    <div class="formula">${bd.cascadeRule}</div>
+    <div class="formula">${bd.shardRule}</div>`;
 }
 
 /* ============================ wire ============================ */
