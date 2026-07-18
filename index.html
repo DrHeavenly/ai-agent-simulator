@@ -11,16 +11,35 @@
 <div id="aurora"></div>
 <div id="app">
   <header>
-    <div class="brand">AI Agent Simulator</div>
+    <div class="brand" id="brandText">AI Agent Simulator</div>
     <div id="cash">$0</div>
     <div id="rate">$0/sec</div>
-    <div><button id="goal"><span class="g-label">Next</span><span id="goalText">—</span><span class="g-hint" id="goalHint"></span><span class="g-go" id="goalGo">→</span></button></div>
+    <div id="goalWrap"><button id="goal"><span class="g-label">Next</span><span id="goalText">—</span><span class="g-hint" id="goalHint"></span><span class="g-go" id="goalGo">→</span></button></div>
     <div class="pane" id="console">
       <div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
         <span class="pane-title">swarm.live — your agents at work</span>
         <span class="live-dot" id="liveDot"></span></div>
       <div id="chatLog" aria-live="polite"></div>
       <button id="clicker">▶ RUN SWARM PROMPT<span class="click-val" id="clickVal"></span></button>
+    </div>
+
+    <!-- chain-world equivalent of the console/goal above — only one of the two is ever visible -->
+    <div class="pane chain-pane" id="chainHud">
+      <div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+        <span class="pane-title">chain.status — wrap, fork, mine</span></div>
+      <div class="chain-hud-body">
+        <div class="chu-row">
+          <div class="chu-label">wCASH</div>
+          <div class="chu-val" id="chuWcash">⬡0</div>
+          <button class="chu-btn" id="wrapBtn">⇪ Wrap Cash</button>
+        </div>
+        <div class="chu-sub" id="chuWrapPreview"></div>
+        <div class="chu-row">
+          <div class="chu-label">Fork</div>
+          <div class="chu-val" id="chuForkStat">—</div>
+          <button class="chu-btn" id="chuForkBtn">View</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -38,6 +57,8 @@
     <div class="tab" data-tab="agi" id="tabAgi" data-world="sim">🧬<span class="tip">AGI Agents</span></div>
     <div class="tab" data-tab="validators" id="tabValidators" data-world="chain">⛏️<span class="tip">Validators</span></div>
     <div class="tab" data-tab="contracts" id="tabContracts" data-world="chain">📜<span class="tip">Smart Contracts</span></div>
+    <div class="tab" data-tab="artifacts" id="tabArtifacts" data-world="chain">🏺<span class="tip">Artifacts</span></div>
+    <div class="tab" data-tab="fork" id="tabFork" data-world="chain">🔱<span class="tip">Fork the Chain</span></div>
     <div class="tab" data-tab="achievements" data-world="both">🏆<span class="tip">Achievements</span></div>
     <div class="tab" data-tab="stats" data-world="both">📊<span class="tip">Stats & Saves</span></div>
     <div class="tab" id="tabSound" data-world="both"><span id="soundIcon">🔊</span><span class="tip">Sound</span></div>
@@ -137,6 +158,20 @@
   </section>
 
   <section class="panel" data-panel="validators">
+    <div class="pane chain-pane">
+      <div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+        <span class="pane-title">chain.wrap — the bridge ritual</span></div>
+      <div class="pane-body">
+        <div class="wrap-row">
+          <div class="grow">
+            <div class="v-name">wCASH: <span id="wcashAmount">⬡0</span></div>
+            <div class="v-desc">One-way. Turns your CURRENT cash into wCASH, permanently — untouched by any reset. Blockchain purchases spend wCASH, never volatile cash.</div>
+            <div class="v-out" id="wrapPreviewLine"></div>
+          </div>
+          <button class="p-btn wrap-btn" id="wrapCashBtn">⇪ Wrap Cash</button>
+        </div>
+      </div>
+    </div>
     <div class="chain-cols">
       <div class="pane chain-pane">
         <div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
@@ -149,12 +184,45 @@
         <div class="pane-body"><div id="blockFeed"></div></div>
       </div>
     </div>
+    <div class="pane chain-pane">
+      <div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+        <span class="pane-title">chain.mempool — optional active play</span></div>
+      <div class="pane-body">
+        <div class="v-desc" style="margin-bottom:8px">Pending transactions accumulate on their own. Sign one for an instant burst — purely optional, idle income is unaffected.</div>
+        <div class="mempool-tray" id="mempoolTray"></div>
+      </div>
+    </div>
   </section>
 
   <section class="panel" data-panel="contracts">
     <div class="pane chain-pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
       <span class="pane-title">smart.contracts — token-funded upgrades</span></div>
       <div class="pane-body"><div class="shop-grid" id="contractsGrid"></div></div></div>
+  </section>
+
+  <section class="panel" data-panel="artifacts">
+    <div class="pane chain-pane"><div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+      <span class="pane-title">artifact.vault — permanent relics</span></div>
+      <div class="pane-body">
+        <div class="v-desc" style="margin-bottom:10px">Blocks have a small chance to drop one. Each is a modest permanent boost, found forever — a fork can't take these away.</div>
+        <div class="shop-grid" id="artifactsGrid"></div>
+      </div></div>
+  </section>
+
+  <section class="panel" data-panel="fork">
+    <div class="pane chain-pane">
+      <div class="pane-bar"><span class="dots"><i></i><i></i><i></i></span>
+        <span class="pane-title">chain.fork — nested prestige</span></div>
+      <div class="pane-body">
+        <div class="prestige-hero">
+          <div class="p-title">🔱 Fork the Chain</div>
+          <div class="p-desc">Resets Validators and Smart Contracts (artifacts and wCASH are untouched). In exchange, pick one of two permanent, mutually exclusive rules — the choice stacks with every prior fork's pick.</div>
+          <div class="p-stat" id="forkStat">—</div>
+        </div>
+        <div class="fork-choice" id="forkChoice"></div>
+        <div class="fork-history" id="forkHistory"></div>
+      </div>
+    </div>
   </section>
 
   <section class="panel" data-panel="achievements">
@@ -179,7 +247,7 @@
       </div></div>
   </section>
 </div>
-<div id="hud"><div id="hudCash"></div><div id="hudRate"></div><div id="hudTokens" style="display:none"></div></div>
+<div id="hud"><div id="hudTokens" style="display:none"></div><div id="hudWcash" style="display:none"></div><div id="hudCash"></div><div id="hudRate"></div></div>
 <div id="toasts"></div>
 
 <script src="break_infinity.min.js"></script>
@@ -393,7 +461,7 @@ function unlockTab(id) {
 
 /* ============================ structure builders ============================ */
 const refs = { tiers: [], upgrades: {}, cshop: {}, sshop: {}, ach: {}, lastMilestones: [],
-  validators: [], contracts: {}, agi: {}, agiSlots: [], stats: {} };
+  validators: [], contracts: {}, agi: {}, agiSlots: [], stats: {}, artifacts: {}, mempool: {}, forkOptions: [] };
 const tokenizeUnlockCash = new Decimal(CONFIG.tokenize.unlockCash);
 function buildTiers() {
   const panel = document.getElementById('tiersPanel');
@@ -470,7 +538,7 @@ function buildValidators() {
     row.innerHTML = `
       <div class="validator-glyph">${cfg.glyph}</div>
       <div class="grow">
-        <div class="v-name">${cfg.name}<span class="cur">${cfg.currency}</span></div>
+        <div class="v-name">${cfg.name}<span class="cur">${cfg.currency === 'token' ? 'token' : 'wCASH'}</span></div>
         <div class="v-desc">${cfg.desc}</div>
         <div class="v-out"></div>
       </div>
@@ -589,15 +657,58 @@ function buildStatsCard() {
     f7: el.querySelector('#stF7'), f8: el.querySelector('#stF8'),
   };
 }
+function buildArtifacts() {
+  const grid = document.getElementById('artifactsGrid');
+  grid.innerHTML = ''; refs.artifacts = {};
+  for (const a of CONFIG.blockchain.artifacts) {
+    const d = document.createElement('div');
+    d.className = 'shop-item artifact';
+    d.innerHTML = `<div class="s-name"></div><div class="s-desc"></div><div class="s-cost"></div>`;
+    grid.appendChild(d);
+    refs.artifacts[a.id] = { el: d, name: d.querySelector('.s-name'), desc: d.querySelector('.s-desc'), cost: d.querySelector('.s-cost') };
+  }
+}
+// Rebuilt only when the offered pair genuinely changes (doFork() sets
+// dirtyStructure — same "genuine unlock" allowance as resetCashLayer/unlockAgiAgents).
+function buildForkChoice() {
+  const wrap = document.getElementById('forkChoice');
+  wrap.innerHTML = ''; refs.forkOptions = [];
+  const pair = currentForkRulePair();
+  for (const rule of pair) {
+    const d = document.createElement('div');
+    d.className = 'fork-option';
+    d.innerHTML = `<div class="fo-name"></div><div class="fo-desc"></div>`;
+    d.querySelector('.fo-name').textContent = rule.name;
+    d.querySelector('.fo-desc').textContent = rule.desc;
+    d.addEventListener('click', () => {
+      if (!canFork()) return;
+      if (doFork(rule.id)) { ui.toast('🔱 Chain forked', rule.name + ' is now permanent'); ui.sfxChord(2); }
+    });
+    wrap.appendChild(d);
+    refs.forkOptions.push({ el: d, ruleId: rule.id });
+  }
+  const hist = document.getElementById('forkHistory');
+  hist.innerHTML = '';
+  for (const ruleId of game.blockchain.forkRules) {
+    const rule = CONFIG.blockchain.forkRulePairs.flat().find(r => r.id === ruleId);
+    if (!rule) continue;
+    const p = document.createElement('span');
+    p.className = 'fork-pill';
+    p.textContent = rule.name;
+    hist.appendChild(p);
+  }
+}
 function rebuildStructure() {
   buildTiers();
   buildShop('upgradesGrid', CONFIG.upgrades, buyUpgrade, it => fmtCash(it.cost), refs.upgrades);
   buildShop('computeShop', CONFIG.compute.shop, buyComputeShop, it => fmt(it.cost) + ' compute', refs.cshop);
   buildShop('shardShop', CONFIG.singularity.shop, buyShardShop, it => fmt(it.cost) + ' shards', refs.sshop);
-  buildShop('contractsGrid', CONFIG.blockchain.contracts, buyContract, it => fmtTok(it.cost), refs.contracts);
+  buildShop('contractsGrid', CONFIG.blockchain.contracts, buyContract, it => fmtTok(contractCost(it.id)), refs.contracts);
   buildValidators();
   buildAgiSlots();
   buildAgiShop();
+  buildArtifacts();
+  buildForkChoice();
   buildAchievements();
   buildStatsCard();
   ui.dirtyStructure = false;
@@ -636,6 +747,8 @@ function render() {
   $('hud').classList.toggle('show', (window.scrollY || 0) > 180);
   $('hudTokens').style.display = game.tokenize.unlocked ? '' : 'none';
   if (game.tokenize.unlocked) $('hudTokens').textContent = fmtTok(game.blockchain.tokens) + ' · +' + fmtTok(tokenPerSecond()) + '/s';
+  $('hudWcash').style.display = game.tokenize.unlocked ? '' : 'none';
+  if (game.tokenize.unlocked) $('hudWcash').textContent = '⬡' + fmt(game.blockchain.wcash) + ' wC';
   const goal = nextGoal();
   if (goal) {
     $('goal').classList.remove('goal-fade');
@@ -777,24 +890,69 @@ function render() {
   refs.validators.forEach((r, i) => {
     const v = game.blockchain.validators[i];
     const cfg = CONFIG.blockchain.validators[i];
+    const gateMet = validatorGateMet(i);
     r.row.classList.toggle('producing', v.owned.gt(0));
+    r.row.classList.toggle('lockedv', !gateMet);
     r.owned.textContent = fmt(v.owned) + ' active';
     r.bought.textContent = fmt(v.purchased) + ' deployed';
     const into = i === 0 ? 'Tokens' : CONFIG.blockchain.validators[i - 1].name;
-    r.out.textContent = `1 unit → ${fmt(validatorUnitOutput(i))} ${into}/s`;
+    r.out.textContent = `1 unit → ${fmt(validatorUnitOutput(i))} ${into}/s`
+      + (cfg.lifetimeTokensGate ? ` · gate: ${fmtTok(cfg.lifetimeTokensGate)} lifetime tokens` : '');
     r.btns.forEach(b => {
       const n = b.dataset.n === 'max' ? validatorMaxAffordable(i) : parseInt(b.dataset.n, 10);
       const cost = n > 0 ? validatorCostN(i, v.purchased, n) : validatorCost(i, v.purchased);
-      const wallet = cfg.currency === 'token' ? game.blockchain.tokens : game.cash;
-      const can = n > 0 && cost.lte(wallet);
-      b.querySelector('.cost').textContent = cfg.currency === 'token' ? fmtTok(cost) : fmtCash(cost);
+      const wallet = cfg.currency === 'token' ? game.blockchain.tokens : game.blockchain.wcash;
+      const can = gateMet && n > 0 && cost.lte(wallet);
+      b.querySelector('.cost').textContent = !gateMet ? 'locked' : (cfg.currency === 'token' ? fmtTok(cost) : '⬡' + fmt(cost) + ' wC');
       b.disabled = !can;
       b.classList.toggle('affordable', can);
       if (b.dataset.n === 'max') b.firstChild.textContent = n > 0 ? `Max ${fmt(n)}` : 'Max';
     });
   });
   // ---- blockchain: smart contracts ----
-  updateShopStates(CONFIG.blockchain.contracts, refs.contracts, id => game.blockchain.contracts[id], it => game.blockchain.tokens.gte(it.cost));
+  updateShopStates(CONFIG.blockchain.contracts, refs.contracts, id => game.blockchain.contracts[id],
+    it => contractGateMet(it.id) && game.blockchain.tokens.gte(contractCost(it.id)));
+
+  // ---- blockchain: wrap converter ----
+  if (game.tokenize.unlocked) {
+    const wcashStr = '⬡' + fmt(game.blockchain.wcash) + ' wC';
+    $('wcashAmount').textContent = wcashStr;
+    $('chuWcash').textContent = wcashStr;
+    const preview = wrapPreview();
+    const canWrap = game.cash.gt(0);
+    $('wrapPreviewLine').textContent = canWrap ? `Wrapping now locks in ${'⬡' + fmt(preview) + ' wC'}` : 'No live cash to wrap right now';
+    $('chuWrapPreview').textContent = $('wrapPreviewLine').textContent;
+    for (const btn of [$('wrapCashBtn'), $('wrapBtn')]) {
+      btn.disabled = !canWrap;
+      btn.classList.toggle('pulse', canWrap);
+    }
+  }
+
+  // ---- blockchain: artifacts ----
+  for (const a of CONFIG.blockchain.artifacts) {
+    const r = refs.artifacts[a.id]; if (!r) continue;
+    const found = !!game.blockchain.artifacts[a.id];
+    r.el.classList.toggle('owned', found);
+    r.el.classList.toggle('silhouette', !found);
+    r.name.textContent = found ? a.name : '❔ ???';
+    r.desc.textContent = found ? a.flavor : 'awaiting discovery';
+    r.cost.textContent = found ? `${a.type === 'token' ? 'Token' : 'wCASH'} efficiency x${fmt(a.mult)}` : '';
+  }
+
+  // ---- blockchain: fork the chain ----
+  if (game.tokenize.unlocked) {
+    const forkReq = forkRequirement();
+    const forkOk = canFork();
+    const forkStatText = forkOk
+      ? `Ready — ${fmtTok(forkReq)} lifetime tokens reached (fork #${game.blockchain.forks + 1})`
+      : `Fork #${game.blockchain.forks + 1} needs ${fmtTok(forkReq)} lifetime tokens (have ${fmtTok(game.blockchain.lifetimeTokens)})`;
+    $('forkStat').textContent = forkStatText;
+    $('chuForkStat').textContent = forkOk ? '🔱 ready to fork' : `fork #${game.blockchain.forks + 1}: ${fmt(game.blockchain.lifetimeTokens)}/${fmt(forkReq)}`;
+    refs.forkOptions.forEach(o => o.el.classList.toggle('cant', !forkOk));
+  }
+
+  // ---- blockchain: mempool tray (rebuilt only when composition actually changes) ----
+  if (game.tokenize.unlocked) renderMempool();
 
   for (const a of CONFIG.achievements) refs.ach[a.id]?.classList.toggle('got', !!game.achievements[a.id]);
 
@@ -882,6 +1040,7 @@ $('tabSound').addEventListener('click', () => { ensureAudio(); toggleSound(); })
 let currentWorld = 'sim';
 function setWorld(w) {
   currentWorld = w;
+  document.body.classList.toggle('world-chain', w === 'chain'); // swaps the ENTIRE page theme (sec. 10)
   document.querySelectorAll('.wbtn').forEach(b => b.classList.toggle('on', b.dataset.world === w));
   document.querySelectorAll('.tab[data-world]').forEach(t => {
     const tw = t.dataset.world;
@@ -900,24 +1059,60 @@ $('agiUnlockBtn').addEventListener('click', () => {
   if (unlockAgiAgents()) { ui.dirtyStructure = true; ui.toast('🧬 AGI Agents unlocked', 'Assemble your 3-agent roster'); ui.sfxChord(1); }
 });
 
-/* ============================ block feed (cosmetic, driven by token rate) ============================ */
-function pushBlock() {
+/* ============================ block feed — real mined blocks (sec. 8) ============================ */
+// Driven by mineBlock() itself via ui.onBlockMined, not a cosmetic timer — every
+// entry here is an actual block the engine mined, artifact drops included.
+ui.onBlockMined = (reward, artifactId) => {
+  if (document.hidden) return; // still mined/paid — just skip the DOM churn while backgrounded
   const hash = '0x' + Array.from({ length: 10 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-  const reward = tokenPerSecond().times(0.5 + Math.random() * 2.5);
   const d = document.createElement('div');
-  d.className = 'block-entry';
+  d.className = 'block-entry' + (artifactId ? ' has-artifact' : '');
   d.innerHTML = `<span class="b-hash"></span><div class="b-meta"><span class="b-time"></span><span class="b-reward"></span></div>`;
   d.querySelector('.b-hash').textContent = hash;
   d.querySelector('.b-time').textContent = new Date().toLocaleTimeString();
   d.querySelector('.b-reward').textContent = '+' + fmtTok(reward);
+  if (artifactId) {
+    const artifact = CONFIG.blockchain.artifacts.find(a => a.id === artifactId);
+    const tag = document.createElement('div');
+    tag.className = 'b-artifact';
+    tag.textContent = '🏺 ' + artifact.name;
+    d.appendChild(tag);
+    ui.toast('🏺 Artifact found', artifact.name + ' — permanent ' + (artifact.type === 'token' ? 'token' : 'wCASH') + ' boost');
+    ui.sfxChime();
+  }
   const feed = document.getElementById('blockFeed');
   feed.appendChild(d);
   while (feed.children.length > 24) feed.removeChild(feed.firstChild);
+};
+
+/* ============================ mempool tray (rebuilt only when composition changes) ============================ */
+let lastMempoolIds = '';
+function renderMempool() {
+  const ids = game.blockchain.mempool.map(tx => tx.id).join(',');
+  if (ids === lastMempoolIds) return; // nothing changed — no DOM work
+  lastMempoolIds = ids;
+  const tray = document.getElementById('mempoolTray');
+  tray.innerHTML = '';
+  for (let i = 0; i < CONFIG.blockchain.mempoolCap; i++) {
+    const tx = game.blockchain.mempool[i];
+    const d = document.createElement('div');
+    if (tx) {
+      d.className = 'mempool-slot pending';
+      d.textContent = 'SIGN\n+' + fmtTok(mempoolBurstReward());
+      d.title = `Sign for an instant ${CONFIG.blockchain.mempoolBurstSecs}s-equivalent token burst`;
+      d.addEventListener('click', () => { if (signMempoolTx(tx.id)) { ui.sfxTick(); lastMempoolIds = ''; } });
+    } else {
+      d.className = 'mempool-slot';
+      d.textContent = '·';
+    }
+    tray.appendChild(d);
+  }
 }
-setInterval(() => {
-  if (!game.tokenize.unlocked || document.hidden || tokenPerSecond().lte(0)) return;
-  pushBlock();
-}, 2200);
+
+/* ============================ wrap converter + fork the chain ============================ */
+$('wrapCashBtn').addEventListener('click', () => { if (wrapCash()) ui.sfxChord(1); });
+$('wrapBtn').addEventListener('click', () => { if (wrapCash()) ui.sfxChord(1); });
+$('chuForkBtn').addEventListener('click', () => switchTab('fork'));
 
 /* ============================ boot ============================ */
 const offline = load();

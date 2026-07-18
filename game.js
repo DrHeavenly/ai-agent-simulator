@@ -10,7 +10,7 @@
 const Decimal = typeof module !== 'undefined' ? require('./break_infinity.min.js') : window.Decimal;
 const CONFIG = {
   saveKey: 'ai_agent_sim_v1',
-  saveVersion: 6,
+  saveVersion: 7,
   tickRate: 10,
   autosaveMs: 10000,
   clickBase: 1,
@@ -128,26 +128,67 @@ const CONFIG = {
     unlockCash: '1e1000',
   },
   blockchain: { // layer 5 — a second idle "world" unlocked by Tokenize, runs alongside layer 1
+    // ===== Blockchain v2 (see SPEC-TOKENIZE.md sec. 8-10) =====
     // Node Runner's raw owned-count would otherwise mirror tier0's 1-unit-per-second
     // cash pacing; scaled down so the free starter unit yields a first token in ~30s
     // (spec: "progression ~2x slower than cash's early curve").
     nodeRunnerTokenRate: 1 / 30,
     validatorCascadeRate: 0.04, // matches the cash world's inter-tier cascade pacing
+    // Former cash-priced validators now price in wCASH (the wrap converter, sec. 8) —
+    // spending live `cash` here was volatile since OPUS-9 resets it constantly.
+    // Spacing is a clean x1e3 between adjacent tiers within each currency (sec. 9).
     validators: [ // tier k produces tier k-1; tier 0 (Node Runner) produces Tokens
-      { id: 'noderunner', name: 'Node Runner',    desc: 'Feeds Tokens directly',      baseCost: '1e995', costMult: 1.14, currency: 'cash',  glyph: '🔹' },
-      { id: 'staking',    name: 'Staking Pool',   desc: 'Feeds Node Runners',         baseCost: '1e998', costMult: 1.17, currency: 'cash',  glyph: '🔷' },
-      { id: 'mining',     name: 'Mining Farm',    desc: 'Feeds Staking Pools',        baseCost: 10,      costMult: 1.20, currency: 'token', glyph: '⛏️' },
-      { id: 'dao',        name: 'DAO Council',    desc: 'Feeds Mining Farms',         baseCost: 1000,    costMult: 1.25, currency: 'token', glyph: '🏛️' },
-      { id: 'whale',      name: 'Protocol Whale', desc: 'Feeds DAO Councils',         baseCost: 1e5,     costMult: 1.32, currency: 'token', glyph: '🐋' },
+      { id: 'noderunner', name: 'Node Runner',    desc: 'Feeds Tokens directly',      baseCost: '1e995', costMult: 1.14, currency: 'wcash', glyph: '🔹' },
+      { id: 'staking',    name: 'Staking Pool',   desc: 'Feeds Node Runners',         baseCost: '1e998', costMult: 1.17, currency: 'wcash', glyph: '🔷' },
+      { id: 'mining',     name: 'Mining Farm',    desc: 'Feeds Staking Pools',        baseCost: 10,      costMult: 1.20, currency: 'token', glyph: '⛏️', lifetimeTokensGate: 0 },
+      { id: 'dao',        name: 'DAO Council',    desc: 'Feeds Mining Farms',         baseCost: 1e4,     costMult: 1.25, currency: 'token', glyph: '🏛️', lifetimeTokensGate: 1e3 },
+      { id: 'whale',      name: 'Protocol Whale', desc: 'Feeds DAO Councils',         baseCost: 1e7,     costMult: 1.32, currency: 'token', glyph: '🐋', lifetimeTokensGate: 1e6 },
     ],
+    // Each also gated behind a lifetimeTokens milestone, on top of price (sec. 9) —
+    // late contracts can't be rushed by hoarding tokens from one lucky burst.
     contracts: [ // one-time upgrades, priced in tokens
-      { id: 'consensusTuning', name: 'Consensus Tuning', desc: 'All Validators x3',                cost: 50,    mult: { allValidators: 3 } },
-      { id: 'sharding',        name: 'Sharding',         desc: 'All Validators x10',               cost: 5000,  mult: { allValidators: 10 } },
-      { id: 'gasOptimizer',    name: 'Gas Optimizer',    desc: 'Validator costs -30%',              cost: 800,   mult: { costReduction: 0.3 } },
-      { id: 'bridgeProtocol',  name: 'Bridge Protocol',  desc: 'Cash production x1e3',              cost: 2000,  mult: { cashCross: 1e3 } },
-      { id: 'liquidityMining', name: 'Liquidity Mining', desc: 'Token production x1e3', cost: 20000, mult: { tokenAll: 1e3 } },
-      { id: 'genesisBlock',    name: 'Genesis Block',    desc: 'Token production x10',              cost: 1e5,   mult: { tokenAll: 10 } },
+      { id: 'consensusTuning', name: 'Consensus Tuning', desc: 'All Validators x3',     cost: 50,    lifetimeTokensGate: 100,  mult: { allValidators: 3 } },
+      { id: 'gasOptimizer',    name: 'Gas Optimizer',    desc: 'Validator costs -30%',  cost: 800,   lifetimeTokensGate: 2000, mult: { costReduction: 0.3 } },
+      { id: 'sharding',        name: 'Sharding',         desc: 'All Validators x10',    cost: 5000,  lifetimeTokensGate: 1e4,  mult: { allValidators: 10 } },
+      { id: 'bridgeProtocol',  name: 'Bridge Protocol',  desc: 'Cash production x1e3',  cost: 2000,  lifetimeTokensGate: 5000, mult: { cashCross: 1e3 } },
+      { id: 'liquidityMining', name: 'Liquidity Mining', desc: 'Token production x1e3', cost: 20000, lifetimeTokensGate: 5e4,  mult: { tokenAll: 1e3 } },
+      { id: 'genesisBlock',    name: 'Genesis Block',    desc: 'Token production x10',  cost: 1e5,   lifetimeTokensGate: 2.5e5, mult: { tokenAll: 10 } },
     ],
+    // Blocks (production step 2): every `blockInterval()` seconds a block mines,
+    // paying `tokenPerSecond * interval` as a burst on top of the continuous trickle.
+    blockBaseInterval: 20,  // seconds, at 0 validators
+    blockMinInterval: 2,    // floor — protects the tab at huge validator counts
+    blockShrinkPerLog10: 3, // seconds shaved off per order-of-magnitude of total validators owned
+    artifactDropChance: 1 / 12, // per block
+    artifacts: [ // permanent collectibles; 8 designs, x1.5-x3 token or wCASH efficiency
+      { id: 'genesisShard',   name: 'Genesis Shard',     flavor: 'Block zero, still warm.',            type: 'token', mult: 1.5 },
+      { id: 'deadWalletKey',  name: 'Dead Wallet Key',   flavor: 'Opens nothing. Worth everything.',   type: 'token', mult: 2 },
+      { id: 'badge51',        name: '51% Badge',         flavor: 'A majority of one.',                 type: 'token', mult: 1.75 },
+      { id: 'coldSeed',       name: 'Cold Storage Seed', flavor: 'Twelve words, zero trust.',          type: 'wcash', mult: 2 },
+      { id: 'consensusRelic', name: 'Consensus Relic',   flavor: 'Everyone agreed, once.',              type: 'token', mult: 2.5 },
+      { id: 'forkBit',        name: 'Fork Bit',          flavor: 'A single bit that split a chain.',   type: 'wcash', mult: 1.5 },
+      { id: 'whaleLedger',    name: 'Whale Ledger',      flavor: 'One address, most of the supply.',   type: 'token', mult: 3 },
+      { id: 'nullCoin',       name: 'Null Address Coin', flavor: 'Sent to 0x0, on purpose.',            type: 'wcash', mult: 2.5 },
+    ],
+    // Fork the Chain: nested prestige, resets validators+contracts (not artifacts/wCASH).
+    // Requirement is a lifetimeTokens milestone; each fork offers a NEW mutually
+    // exclusive rule pair, and the choice (not a farmable currency) is the reward.
+    forkMilestones: ['1e4', '1e7', '1e11', '1e16', '1e22', '1e29', '1e37'],
+    forkRulePairs: [
+      [ { id: 'pos', name: 'Proof of Stake', desc: 'Validator costs -66% (3x cheaper)', mult: { costReduction: 0.66 } },
+        { id: 'pow', name: 'Proof of Work',  desc: 'Blocks mine 2x faster',             mult: { blockSpeed: 2 } } ],
+      [ { id: 'megawhale', name: 'Megawhale',    desc: 'All Validators x2',    mult: { allValidators: 2 } },
+        { id: 'retailRush', name: 'Retail Rush', desc: 'Token production x2',  mult: { tokenAll: 2 } } ],
+      [ { id: 'lucky',  name: 'Lucky Fork',  desc: 'Artifact drop chance x2', mult: { artifactChance: 2 } },
+        { id: 'steady', name: 'Steady Chain', desc: 'Block reward x2',        mult: { blockReward: 2 } } ],
+      [ { id: 'archivist',  name: 'Archivist',  desc: 'Smart Contract costs -40%',      mult: { contractCostReduction: 0.4 } },
+        { id: 'prospector', name: 'Prospector', desc: 'Cash production x1e6 (crossover)', mult: { cashCross: 1e6 } } ],
+    ],
+    // Mempool: optional active play. Pending transactions accumulate in a small
+    // tray; signing one pays an instant burst worth `mempoolBurstSecs` of income.
+    mempoolCap: 8,
+    mempoolGenSecs: 20,
+    mempoolBurstSecs: 60,
   },
 };
 
@@ -164,7 +205,7 @@ function freshState() {
     models: { level: 0 },
     singularity: { shards: 0, shop: {} },
     achievements: {},
-    stats: { computeResets: 0, modelResets: 0, singularities: 0, playtime: 0, lastComputeRunSecs: null, tokenizeSeen: false },
+    stats: { computeResets: 0, modelResets: 0, singularities: 0, playtime: 0, lastComputeRunSecs: null, tokenizeSeen: false, blocksMined: 0 },
     settings: { soundOn: true },
     goalIndex: 0,
     tokenize: { unlocked: false },
@@ -173,6 +214,11 @@ function freshState() {
       tokens: new Decimal(0), lifetimeTokens: new Decimal(0),
       validators: CONFIG.blockchain.validators.map(() => ({ owned: new Decimal(0), purchased: 0 })),
       contracts: {},
+      wcash: new Decimal(0),         // never reset by anything (sec. 8)
+      artifacts: {},                 // id -> true, never reset (sec. 8)
+      blockTimer: 0,
+      forks: 0, forkRules: [],       // chosen rule ids, never reset — the fork's build persists
+      mempool: [], mempoolTimer: 0, mempoolNextId: 0,
     },
     lastSaveTime: Date.now(),
   };
@@ -353,7 +399,13 @@ function resetCashLayer() {
 function modelRequirement(level) {
   // superexponential (AD-style 10^(n^k)): in-run growth is exponential, so a
   // merely geometric requirement curve collapses — levels must outrun it
-  return new Decimal(CONFIG.models.unlockBestGain).times(new Decimal(CONFIG.models.reqMult).pow(Math.pow(level, CONFIG.models.reqCurve)));
+  const base = new Decimal(CONFIG.models.unlockBestGain).times(new Decimal(CONFIG.models.reqMult).pow(Math.pow(level, CONFIG.models.reqCurve)));
+  // Balance directive (spec sec. 9): singularity shard income was too fast for
+  // the AGI agent shard costs. Shard formula stays unchanged; instead each
+  // singularity already earned makes the NEXT model cycle's record requirement
+  // x10^(singularities^1.5) harder, spacing out how often shards arrive.
+  const singularityFactor = new Decimal(10).pow(Math.pow(game.stats.singularities, 1.5));
+  return base.times(singularityFactor);
 }
 function canTrainModel() {
   return game.compute.bestGain.gte(modelRequirement(game.models.level));
@@ -537,30 +589,43 @@ function doTokenize() {
   // their already-existing rows read, which render() updates in place.
   return true;
 }
-function contractCostReduction() {
-  let r = new Decimal(1);
-  for (const c of CONFIG.blockchain.contracts) if (game.blockchain.contracts[c.id] && c.mult.costReduction) r = r.times(1 - c.mult.costReduction);
-  return r;
+// Every owned Smart Contract AND every chosen Fork rule carries a `.mult`
+// object of the same shape — one aggregator for both, so a fork rule is just
+// "a contract that survives a fork" from the multiplier system's point of view.
+function activeMultSources() {
+  const sources = [];
+  for (const c of CONFIG.blockchain.contracts) if (game.blockchain.contracts[c.id]) sources.push(c.mult);
+  for (const pair of CONFIG.blockchain.forkRulePairs) for (const r of pair) {
+    for (const picked of game.blockchain.forkRules) if (picked === r.id) sources.push(r.mult); // duplicates stack
+  }
+  return sources;
 }
-function validatorAllMult() {
+function sumMult(key) {
   let m = new Decimal(1);
-  for (const c of CONFIG.blockchain.contracts) if (game.blockchain.contracts[c.id] && c.mult.allValidators) m = m.times(c.mult.allValidators);
+  for (const s of activeMultSources()) if (s[key]) m = m.times(s[key]);
   return m;
 }
-// ORACLE (token gain x25) + any token-crossover contracts, applied only to the
-// final Node Runner -> Token conversion, not the inter-validator cascade.
+// (1 - x) style reducers — distinct from sumMult's plain multipliers.
+function validatorCostReductionMult() {
+  let r = new Decimal(1);
+  for (const s of activeMultSources()) if (s.costReduction) r = r.times(1 - s.costReduction);
+  return r;
+}
+function contractPriceReductionMult() {
+  let r = new Decimal(1);
+  for (const s of activeMultSources()) if (s.contractCostReduction) r = r.times(1 - s.contractCostReduction);
+  return r;
+}
+function validatorAllMult() { return sumMult('allValidators'); }
+// ORACLE (token gain x25) + any token-crossover contracts/fork rules, applied
+// only to the final Node Runner -> Token conversion, not the inter-validator cascade.
 function tokenCrossMult() {
-  let m = new Decimal(1);
-  for (const c of CONFIG.blockchain.contracts) if (game.blockchain.contracts[c.id] && c.mult.tokenAll) m = m.times(c.mult.tokenAll);
+  let m = sumMult('tokenAll');
   if (isAgentEquipped('oracle')) m = m.times(25);
   return m;
 }
-// Bridge Protocol et al: contracts that push the OTHER direction, into cash production.
-function cashCrossMult() {
-  let m = new Decimal(1);
-  for (const c of CONFIG.blockchain.contracts) if (game.blockchain.contracts[c.id] && c.mult.cashCross) m = m.times(c.mult.cashCross);
-  return m;
-}
+// Bridge Protocol et al: contracts/fork rules that push the OTHER direction, into cash.
+function cashCrossMult() { return sumMult('cashCross'); }
 function tokenPerSecond() {
   if (!game.tokenize.unlocked) return new Decimal(0);
   const owned = game.blockchain.validators[0].owned;
@@ -569,7 +634,7 @@ function tokenPerSecond() {
 }
 function validatorCost(i, purchased) {
   const v = CONFIG.blockchain.validators[i];
-  return new Decimal(v.baseCost).times(new Decimal(v.costMult).pow(purchased)).times(contractCostReduction());
+  return new Decimal(v.baseCost).times(new Decimal(v.costMult).pow(purchased)).times(validatorCostReductionMult());
 }
 function validatorCostN(i, purchased, n) {
   let total = new Decimal(0);
@@ -577,9 +642,16 @@ function validatorCostN(i, purchased, n) {
   return total;
 }
 function validatorWallet(i) {
-  return CONFIG.blockchain.validators[i].currency === 'token' ? game.blockchain.tokens : game.cash;
+  return CONFIG.blockchain.validators[i].currency === 'token' ? game.blockchain.tokens : game.blockchain.wcash;
+}
+// Token-priced validators are also gated behind a lifetimeTokens milestone (sec. 9),
+// on top of price — a late tier can't be rushed by hoarding from one lucky burst.
+function validatorGateMet(i) {
+  const gate = CONFIG.blockchain.validators[i].lifetimeTokensGate;
+  return !gate || game.blockchain.lifetimeTokens.gte(gate);
 }
 function validatorMaxAffordable(i) {
+  if (!validatorGateMet(i)) return 0;
   const rec = game.blockchain.validators[i];
   const wallet = validatorWallet(i);
   let n = 0; let spend = new Decimal(0);
@@ -591,22 +663,33 @@ function validatorMaxAffordable(i) {
   return n;
 }
 function buyValidator(i, amount) {
+  if (!validatorGateMet(i)) return false;
   const rec = game.blockchain.validators[i];
   const n = amount === 'max' ? validatorMaxAffordable(i) : amount;
   if (n <= 0) return false;
   const cost = validatorCostN(i, rec.purchased, n);
   const isToken = CONFIG.blockchain.validators[i].currency === 'token';
-  const wallet = isToken ? game.blockchain.tokens : game.cash;
+  const wallet = isToken ? game.blockchain.tokens : game.blockchain.wcash;
   if (cost.gt(wallet)) return false;
   if (isToken) game.blockchain.tokens = game.blockchain.tokens.minus(cost);
-  else game.cash = game.cash.minus(cost);
+  else game.blockchain.wcash = game.blockchain.wcash.minus(cost);
   rec.purchased += n; rec.owned = rec.owned.plus(n);
   return true;
 }
+function contractGateMet(id) {
+  const c = CONFIG.blockchain.contracts.find(x => x.id === id);
+  return !!c && (!c.lifetimeTokensGate || game.blockchain.lifetimeTokens.gte(c.lifetimeTokensGate));
+}
+function contractCost(id) {
+  const c = CONFIG.blockchain.contracts.find(x => x.id === id);
+  return new Decimal(c.cost).times(contractPriceReductionMult());
+}
 function buyContract(id) {
   const c = CONFIG.blockchain.contracts.find(x => x.id === id);
-  if (!c || game.blockchain.contracts[id] || game.blockchain.tokens.lt(c.cost)) return false;
-  game.blockchain.tokens = game.blockchain.tokens.minus(c.cost);
+  if (!c || game.blockchain.contracts[id] || !contractGateMet(id)) return false;
+  const cost = contractCost(id);
+  if (game.blockchain.tokens.lt(cost)) return false;
+  game.blockchain.tokens = game.blockchain.tokens.minus(cost);
   game.blockchain.contracts[id] = true;
   return true;
 }
@@ -623,6 +706,138 @@ function tickBlockchain(dt) {
   }
   for (let i = 0; i < gains.length; i++) game.blockchain.validators[i].owned = game.blockchain.validators[i].owned.plus(gains[i]);
   addTokens(tokenGain);
+  tickBlocks(dt);
+  tickMempool(dt);
+}
+
+/* ============================== wCASH (the wrap converter, sec. 8) ============================== */
+// One-way: turns ALL current cash into wCASH right now. wCASH is a Decimal
+// untouched by any reset (compute/model/singularity/fork) — the fix for
+// Blockchain purchases spending a `cash` balance that OPUS-9 zeroes constantly.
+function artifactMult(type) {
+  let m = new Decimal(1);
+  for (const a of CONFIG.blockchain.artifacts) if (game.blockchain.artifacts[a.id] && a.type === type) m = m.times(a.mult);
+  return m;
+}
+function wrapPreview() { return game.cash.times(artifactMult('wcash')); }
+function wrapCash() {
+  if (game.cash.lte(0)) return false;
+  game.blockchain.wcash = game.blockchain.wcash.plus(wrapPreview());
+  game.cash = new Decimal(0);
+  return true;
+}
+
+/* ============================== Blocks + Artifacts (sec. 8) ============================== */
+function totalValidatorsOwned() {
+  return game.blockchain.validators.reduce((s, v) => s.plus(v.owned), new Decimal(0));
+}
+// Shrinks toward blockMinInterval as validator count grows (log-scaled — owned
+// counts can reach values far beyond safe double range under GHOST).
+function blockInterval() {
+  const total = totalValidatorsOwned();
+  const shrink = total.gt(0) ? total.plus(1).log10() * CONFIG.blockchain.blockShrinkPerLog10 : 0;
+  const raw = CONFIG.blockchain.blockBaseInterval - shrink;
+  const speedMult = sumMult('blockSpeed').toNumber();
+  return Math.max(CONFIG.blockchain.blockMinInterval, raw) / speedMult;
+}
+function artifactDropChance() {
+  return CONFIG.blockchain.artifactDropChance * sumMult('artifactChance').toNumber();
+}
+function undiscoveredArtifacts() {
+  return CONFIG.blockchain.artifacts.filter(a => !game.blockchain.artifacts[a.id]);
+}
+function grantRandomArtifact() {
+  const undiscovered = undiscoveredArtifacts();
+  if (!undiscovered.length) return null;
+  const pick = undiscovered[Math.floor(Math.random() * undiscovered.length)];
+  game.blockchain.artifacts[pick.id] = true;
+  return pick.id;
+}
+function mineBlock(perBlockReward) {
+  addTokens(perBlockReward);
+  game.stats.blocksMined += 1;
+  const artifactId = Math.random() < artifactDropChance() ? grantRandomArtifact() : null;
+  if (typeof ui.onBlockMined === 'function') ui.onBlockMined(perBlockReward, artifactId);
+  return artifactId;
+}
+// Bounded per real tick() call (protects the tab under GHOST/offline catch-up,
+// same philosophy as GHOST's own speed cap): the first `directCap` blocks each
+// roll their own artifact chance individually (exact, matches the spec's ~1/12
+// per block); any excess in the same tick is settled in one lump sum with an
+// expected-value artifact roll, so long time-skips stay statistically correct
+// without looping millions of times.
+function tickBlocks(dt) {
+  if (!game.tokenize.unlocked) return;
+  const interval = blockInterval();
+  game.blockchain.blockTimer += dt;
+  const blocksToMine = Math.floor(game.blockchain.blockTimer / interval);
+  if (blocksToMine <= 0) return;
+  game.blockchain.blockTimer -= blocksToMine * interval;
+  const perBlockReward = tokenPerSecond().times(interval).times(sumMult('blockReward'));
+  const directCap = 200;
+  const direct = Math.min(blocksToMine, directCap);
+  for (let i = 0; i < direct; i++) mineBlock(perBlockReward);
+  const excess = blocksToMine - direct;
+  if (excess > 0) {
+    addTokens(perBlockReward.times(excess));
+    game.stats.blocksMined += excess;
+    const expected = excess * artifactDropChance();
+    let toGrant = Math.floor(expected);
+    if (Math.random() < expected - toGrant) toGrant++;
+    for (let i = 0; i < toGrant; i++) grantRandomArtifact();
+  }
+}
+// Transparency: the reward the NEXT block will pay at current rates (no hidden math).
+function blockRewardPreview() { return tokenPerSecond().times(blockInterval()).times(sumMult('blockReward')); }
+function forkRuleActive(id) { return game.blockchain.forkRules.includes(id); }
+
+/* ============================== Fork the Chain (sec. 8) ============================== */
+function forkRequirement() {
+  const idx = Math.min(game.blockchain.forks, CONFIG.blockchain.forkMilestones.length - 1);
+  return new Decimal(CONFIG.blockchain.forkMilestones[idx]);
+}
+function canFork() { return game.blockchain.lifetimeTokens.gte(forkRequirement()); }
+function currentForkRulePair() {
+  return CONFIG.blockchain.forkRulePairs[game.blockchain.forks % CONFIG.blockchain.forkRulePairs.length];
+}
+// Resets validators + contracts (NOT artifacts, NOT wCASH, NOT prior fork rules —
+// the accumulated rule choices ARE the build-crafting reward and must persist).
+function doFork(ruleId) {
+  if (!canFork()) return false;
+  const pair = currentForkRulePair();
+  if (!pair.some(r => r.id === ruleId)) return false;
+  game.blockchain.forkRules.push(ruleId);
+  game.blockchain.forks += 1;
+  game.blockchain.validators = CONFIG.blockchain.validators.map(() => ({ owned: new Decimal(0), purchased: 0 }));
+  game.blockchain.validators[0].owned = new Decimal(1); // same free starter Node Runner as first Tokenize entry
+  game.blockchain.validators[0].purchased = 1;
+  game.blockchain.contracts = {};
+  game.blockchain.blockTimer = 0;
+  game.blockchain.mempool = []; game.blockchain.mempoolTimer = 0;
+  // Genuine structural change (like resetCashLayer/unlockAgiAgents): the fork
+  // choice UI must now show a DIFFERENT rule pair, not a purchase-adjacent update.
+  ui.dirtyStructure = true;
+  return true;
+}
+
+/* ============================== Mempool (sec. 8, optional active play) ============================== */
+function tickMempool(dt) {
+  if (!game.tokenize.unlocked) return;
+  game.blockchain.mempoolTimer += dt;
+  while (game.blockchain.mempoolTimer >= CONFIG.blockchain.mempoolGenSecs) {
+    game.blockchain.mempoolTimer -= CONFIG.blockchain.mempoolGenSecs;
+    if (game.blockchain.mempool.length < CONFIG.blockchain.mempoolCap) {
+      game.blockchain.mempool.push({ id: game.blockchain.mempoolNextId++ });
+    }
+  }
+}
+function mempoolBurstReward() { return tokenPerSecond().times(CONFIG.blockchain.mempoolBurstSecs); }
+function signMempoolTx(id) {
+  const idx = game.blockchain.mempool.findIndex(tx => tx.id === id);
+  if (idx === -1) return false;
+  game.blockchain.mempool.splice(idx, 1);
+  addTokens(mempoolBurstReward());
+  return true;
 }
 
 /* ============================== achievements ============================== */
@@ -660,6 +875,7 @@ function buildSave() {
       ...g.blockchain,
       tokens: g.blockchain.tokens.toString(),
       lifetimeTokens: g.blockchain.lifetimeTokens.toString(),
+      wcash: g.blockchain.wcash.toString(),
       validators: g.blockchain.validators.map(v => ({ ...v, owned: v.owned.toString() })),
     },
   };
@@ -688,6 +904,12 @@ function migrateSave(data) {
   // no structural change; applySave() back-fills it from best-available
   // evidence in the save (see the tokenizeSeen line near the end of applySave).
   if (data.version === 5) { data.version = 6; }
+  // v6 -> v7: Blockchain v2 (wCASH, Blocks, Artifacts, Fork the Chain, Mempool) —
+  // no structural change; applySave()'s fresh-merge back-fills the new
+  // blockchain.{wcash,artifacts,blockTimer,forks,forkRules,mempool,...} fields.
+  // Existing validator owned/purchased counts carry over unchanged — only what
+  // FUTURE purchases of Node Runner/Staking Pool cost changes (wCASH, not cash).
+  if (data.version === 6) { data.version = 7; }
   return data;
 }
 function applySave(data) {
@@ -722,6 +944,7 @@ function applySave(data) {
   game.compute.bestGain = new Decimal(game.compute.bestGain || 0);
   game.blockchain.tokens = new Decimal(game.blockchain.tokens || 0);
   game.blockchain.lifetimeTokens = new Decimal(game.blockchain.lifetimeTokens || 0);
+  game.blockchain.wcash = new Decimal(game.blockchain.wcash || 0);
   game.blockchain.validators.forEach(v => { v.owned = new Decimal(v.owned || 0); });
   // goalIndex: trust a persisted value; derive one for saves that predate it
   // (see deriveInitialGoalIndex — must run last, after everything above is live)
@@ -917,8 +1140,13 @@ if (typeof module !== 'undefined') module.exports = {
   cashForComputeGain, tierUnitOutput, multBreakdown,
   isAgentEquipped, canUnlockAgiAgents, unlockAgiAgents, buyAgiAgent, equipAgiAgent, unequipAgiAgent,
   canTokenize, doTokenize, tokenPerSecond, validatorCost, validatorCostN, validatorMaxAffordable,
-  buyValidator, buyContract, validatorAllMult, tokenCrossMult, cashCrossMult, contractCostReduction,
+  buyValidator, buyContract, validatorAllMult, tokenCrossMult, cashCrossMult,
+  validatorCostReductionMult, contractPriceReductionMult, contractCost, contractGateMet, validatorGateMet,
   validatorUnitOutput, performClick, addTokens, atlasTransform, ghostSpeedFactor,
   GOALS, deriveInitialGoalIndex,
+  activeMultSources, sumMult, artifactMult, wrapPreview, wrapCash,
+  totalValidatorsOwned, blockInterval, artifactDropChance, undiscoveredArtifacts, mineBlock, tickBlocks, blockRewardPreview,
+  forkRequirement, canFork, currentForkRulePair, doFork, forkRuleActive,
+  tickMempool, mempoolBurstReward, signMempoolTx,
   _setGame: g => { game = g; },
 };
