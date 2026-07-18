@@ -68,6 +68,9 @@ button#goal:hover { border-color:var(--stroke-hi); transform:translateY(-1px); }
 button#goal:active { transform:scale(.97); }
 button#goal.ready { border-color:rgba(74,222,128,.5); box-shadow:0 0 22px rgba(74,222,128,.14); }
 button#goal.ready .g-go { color:var(--good); }
+/* checklist complete: fade out, then removed from layout entirely — no placeholder text */
+button#goal.goal-fade { opacity:0; transform:translateY(-8px) scale(.95); pointer-events:none;
+  transition:opacity .45s var(--easeout), transform .45s var(--easeout); }
 .g-go { font-size:11px; color:var(--dim); font-weight:800; letter-spacing:.04em; }
 
 /* ---- the swarm console (the clicker IS the show) ---- */

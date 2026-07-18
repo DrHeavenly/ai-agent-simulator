@@ -10,7 +10,7 @@
 const Decimal = typeof module !== 'undefined' ? require('./break_infinity.min.js') : window.Decimal;
 const CONFIG = {
   saveKey: 'ai_agent_sim_v1',
-  saveVersion: 5,
+  saveVersion: 6,
   tickRate: 10,
   autosaveMs: 10000,
   clickBase: 1,
@@ -111,7 +111,7 @@ const CONFIG = {
     slots: 3,
     list: [
       { id: 'opus',   name: 'OPUS-9',    title: 'The Executive',  cost: 40,  locked: false,
-        desc: 'TOTAL automation of the pre-Tokenize game: auto-clicks (5/sec), autobuys tiers + cash upgrades + compute shop, auto-prestiges compute on record-caliber runs, auto-trains models. Equip it and the cash game plays itself.' },
+        desc: 'TOTAL automation of the pre-Tokenize game: auto-clicks (5/sec), autobuys tiers + cash upgrades + compute shop, auto-prestiges compute on record-caliber runs, auto-trains models.' },
       { id: 'midas',  name: 'MIDAS',     title: 'The Rainmaker',  cost: 40,  locked: false,
         desc: 'ALL cash production ^1.05 then x1e6' },
       { id: 'oracle', name: 'ORACLE',    title: 'The Miner',      cost: 60,  locked: false,
@@ -145,7 +145,7 @@ const CONFIG = {
       { id: 'sharding',        name: 'Sharding',         desc: 'All Validators x10',               cost: 5000,  mult: { allValidators: 10 } },
       { id: 'gasOptimizer',    name: 'Gas Optimizer',    desc: 'Validator costs -30%',              cost: 800,   mult: { costReduction: 0.3 } },
       { id: 'bridgeProtocol',  name: 'Bridge Protocol',  desc: 'Cash production x1e3',              cost: 2000,  mult: { cashCross: 1e3 } },
-      { id: 'liquidityMining', name: 'Liquidity Mining', desc: 'Vice-versa bridge: Token production x1e3', cost: 20000, mult: { tokenAll: 1e3 } },
+      { id: 'liquidityMining', name: 'Liquidity Mining', desc: 'Token production x1e3', cost: 20000, mult: { tokenAll: 1e3 } },
       { id: 'genesisBlock',    name: 'Genesis Block',    desc: 'Token production x10',              cost: 1e5,   mult: { tokenAll: 10 } },
     ],
   },
@@ -164,7 +164,7 @@ function freshState() {
     models: { level: 0 },
     singularity: { shards: 0, shop: {} },
     achievements: {},
-    stats: { computeResets: 0, modelResets: 0, singularities: 0, playtime: 0, lastComputeRunSecs: null },
+    stats: { computeResets: 0, modelResets: 0, singularities: 0, playtime: 0, lastComputeRunSecs: null, tokenizeSeen: false },
     settings: { soundOn: true },
     goalIndex: 0,
     tokenize: { unlocked: false },
@@ -283,6 +283,12 @@ function tierMaxAffordable(i) {
   }
   return n;
 }
+// Purchases never touch ui.dirtyStructure — every row/card these affect
+// already exists (built once) and updates in place via refs each render frame.
+// A structural rebuild here would blow away and recreate the entire panel on
+// every single buy, which is what caused the purchase-time blink/lag; the ONE
+// legitimate rebuild trigger for tiers (a newly-unlocked row) is detected
+// separately, by polling render()'s own tier loop, not by the purchase itself.
 function buyTier(i, amount) {
   const t = game.tiers[i];
   const n = amount === 'max' ? tierMaxAffordable(i) : amount;
@@ -291,28 +297,24 @@ function buyTier(i, amount) {
   if (cost.gt(game.cash)) return false;
   game.cash = game.cash.minus(cost);
   t.purchased += n; t.owned = t.owned.plus(n);
-  ui.dirtyStructure = true;
   return true;
 }
 function buyUpgrade(id) {
   const u = CONFIG.upgrades.find(x => x.id === id);
   if (!u || game.upgrades[id] || game.cash.lt(u.cost)) return false;
   game.cash = game.cash.minus(u.cost); game.upgrades[id] = true;
-  ui.dirtyStructure = true;
   return true;
 }
 function buyComputeShop(id) {
   const s = CONFIG.compute.shop.find(x => x.id === id);
   if (!s || game.compute.shop[id] || game.compute.points.lt(s.cost)) return false;
   game.compute.points = game.compute.points.minus(s.cost); game.compute.shop[id] = true;
-  ui.dirtyStructure = true;
   return true;
 }
 function buyShardShop(id) {
   const s = CONFIG.singularity.shop.find(x => x.id === id);
   if (!s || game.singularity.shop[id] || game.singularity.shards < s.cost) return false;
   game.singularity.shards -= s.cost; game.singularity.shop[id] = true;
-  ui.dirtyStructure = true;
   return true;
 }
 
@@ -432,6 +434,9 @@ function tick(dt) {
   }
   for (let i = 0; i < gains.length; i++) game.tiers[i].owned = game.tiers[i].owned.plus(gains[i]);
   addCash(cashGain);
+  if (!game.stats.tokenizeSeen && game.cashThisRun.gte(new Decimal(CONFIG.tokenize.unlockCash))) {
+    game.stats.tokenizeSeen = true;
+  }
   tickBlockchain(dt);
   game.stats.playtime += dt;
   // autobuyers (once per ~second, cheap)
@@ -477,6 +482,8 @@ function canUnlockAgiAgents() {
     && game.stats.singularities >= CONFIG.agiAgents.unlockSingularities
     && game.singularity.shards >= CONFIG.agiAgents.unlockShards;
 }
+// The one legitimate AGI-related rebuild: unlocking swaps the panel from its
+// locked-requirements body to the shop+slots body (genuinely different DOM).
 function unlockAgiAgents() {
   if (!canUnlockAgiAgents()) return false;
   game.singularity.shards -= CONFIG.agiAgents.unlockShards;
@@ -484,27 +491,26 @@ function unlockAgiAgents() {
   ui.dirtyStructure = true;
   return true;
 }
+// Buying/equipping/unequipping never touch dirtyStructure — every agent card
+// and slot already exists; ownership/equip state updates in place via refs.
 function buyAgiAgent(id) {
   if (!game.agiAgents.unlocked) return false;
   const a = CONFIG.agiAgents.list.find(x => x.id === id);
   if (!a || game.agiAgents.owned[id] || game.singularity.shards < a.cost) return false;
   game.singularity.shards -= a.cost;
   game.agiAgents.owned[id] = true;
-  ui.dirtyStructure = true;
   return true;
 }
 function equipAgiAgent(id) {
   if (!game.agiAgents.owned[id] || isAgentEquipped(id)) return false;
   if (game.agiAgents.equipped.length >= CONFIG.agiAgents.slots) return false;
   game.agiAgents.equipped.push(id);
-  ui.dirtyStructure = true;
   return true;
 }
 function unequipAgiAgent(id) {
   const idx = game.agiAgents.equipped.indexOf(id);
   if (idx === -1) return false;
   game.agiAgents.equipped.splice(idx, 1);
-  ui.dirtyStructure = true;
   return true;
 }
 // MIDAS: ALL cash production ^1.05 then x1e6 — applied to the rate, not per-tick
@@ -514,8 +520,11 @@ function midasBoost(rate) {
 }
 
 /* ============================== tokenize + blockchain ============================== */
+// Availability is PERMANENT once the threshold is first reached — stats.tokenizeSeen
+// latches in tick() and never resets, so a prestige (e.g. an OPUS-9 auto-reset)
+// that zeroes cashThisRun right after crossing it can't hide Tokenize again.
 function canTokenize() {
-  return !game.tokenize.unlocked && game.cashThisRun.gte(new Decimal(CONFIG.tokenize.unlockCash));
+  return !game.tokenize.unlocked && game.stats.tokenizeSeen;
 }
 function doTokenize() {
   if (!canTokenize()) return false;
@@ -523,7 +532,9 @@ function doTokenize() {
   // free first Node Runner — income flows immediately, no clicking in this world
   game.blockchain.validators[0].owned = new Decimal(1);
   game.blockchain.validators[0].purchased = 1;
-  ui.dirtyStructure = true;
+  // no dirtyStructure: the validators/contracts panels are built once at boot
+  // (CONFIG-driven, not gated on tokenize state) — this just changes what
+  // their already-existing rows read, which render() updates in place.
   return true;
 }
 function contractCostReduction() {
@@ -590,7 +601,6 @@ function buyValidator(i, amount) {
   if (isToken) game.blockchain.tokens = game.blockchain.tokens.minus(cost);
   else game.cash = game.cash.minus(cost);
   rec.purchased += n; rec.owned = rec.owned.plus(n);
-  ui.dirtyStructure = true;
   return true;
 }
 function buyContract(id) {
@@ -598,7 +608,6 @@ function buyContract(id) {
   if (!c || game.blockchain.contracts[id] || game.blockchain.tokens.lt(c.cost)) return false;
   game.blockchain.tokens = game.blockchain.tokens.minus(c.cost);
   game.blockchain.contracts[id] = true;
-  ui.dirtyStructure = true;
   return true;
 }
 function tickBlockchain(dt) {
@@ -618,12 +627,14 @@ function tickBlockchain(dt) {
 
 /* ============================== achievements ============================== */
 function checkAchievements() {
+  // No dirtyStructure: the achievement grid is built once at boot; a newly
+  // earned achievement only toggles a `.got` class on its existing card,
+  // already handled in place every render frame.
   for (const a of CONFIG.achievements) {
     if (!game.achievements[a.id] && a.check(game)) {
       game.achievements[a.id] = Date.now();
       if (typeof ui.toast === 'function') ui.toast(`🏆 ${a.name}`, a.desc);
       if (typeof ui.sfxChime === 'function') ui.sfxChime();
-      ui.dirtyStructure = true;
     }
   }
 }
@@ -673,6 +684,10 @@ function migrateSave(data) {
   // no structural change here either; applySave() detects its absence and
   // derives a starting index from progress (see deriveInitialGoalIndex).
   if (data.version === 4) { data.version = 5; }
+  // v5 -> v6: added stats.tokenizeSeen for permanent Tokenize availability —
+  // no structural change; applySave() back-fills it from best-available
+  // evidence in the save (see the tokenizeSeen line near the end of applySave).
+  if (data.version === 5) { data.version = 6; }
   return data;
 }
 function applySave(data) {
@@ -711,6 +726,12 @@ function applySave(data) {
   // goalIndex: trust a persisted value; derive one for saves that predate it
   // (see deriveInitialGoalIndex — must run last, after everything above is live)
   if (!hadGoalIndex) game.goalIndex = deriveInitialGoalIndex();
+  // tokenizeSeen: self-healing rather than version-gated — a save that predates
+  // the field, or one where it's already true, both fall out of this correctly.
+  // A save whose cashThisRun happened to be low at save time (mid-run, post-reset)
+  // can't recover a historical crossing we have no record of — best-available info only.
+  game.stats.tokenizeSeen = game.stats.tokenizeSeen || game.tokenize.unlocked
+    || game.cashThisRun.gte(new Decimal(CONFIG.tokenize.unlockCash));
   return true;
 }
 function load() {
@@ -817,7 +838,8 @@ const GOALS = (() => {
                      hint: `${g.stats.singularities}/${CONFIG.agiAgents.unlockSingularities} sing · ${fmt(g.singularity.shards)}/${CONFIG.agiAgents.unlockShards} shards`,
                      action: 'tab:agi', ready: canUnlockAgiAgents() }) },
     { id: 'tokenize', check: g => g.tokenize.unlocked,
-      build: g => ({ text: 'Activate Tokenize', hint: `${fmtCash(g.cashThisRun)}/${fmtCash(CONFIG.tokenize.unlockCash)}`,
+      build: g => ({ text: 'Activate Tokenize',
+                     hint: g.stats.tokenizeSeen ? 'ready to activate' : `${fmtCash(g.cashThisRun)}/${fmtCash(CONFIG.tokenize.unlockCash)}`,
                      action: 'tab:tokenize', ready: canTokenize() }) },
     { id: 'tokenValidator', check: g => g.blockchain.validators[2].purchased >= 1,
       build: g => ({ text: 'Deploy a Mining Farm', hint: 'first token-funded validator', action: 'tab:validators', ready: false }) },
@@ -829,11 +851,11 @@ const GOALS = (() => {
   );
   return list;
 })();
+// Returns null once every goal is done — no placeholder object. The UI fades
+// the pill out and removes it rather than displaying a "complete" message.
 function nextGoal() {
   while (game.goalIndex < GOALS.length && GOALS[game.goalIndex].check(game)) game.goalIndex += 1;
-  if (game.goalIndex >= GOALS.length) {
-    return { text: 'All goals complete', hint: 'the checklist is clear — grind on', action: '', ready: false };
-  }
+  if (game.goalIndex >= GOALS.length) return null;
   return GOALS[game.goalIndex].build(game);
 }
 // Migration helper: an old save has no persisted goalIndex. Deriving it from a

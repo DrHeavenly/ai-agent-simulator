@@ -82,6 +82,69 @@ earn 1e6 tokens · own every Smart Contract.
 Every constant above goes in CONFIG.tokenize / CONFIG.agiAgents /
 CONFIG.blockchain. Save: bump version, migrate, old saves keep everything.
 
+## 8. Blockchain v2 — the redesign (fullness pass)
+
+**Economy fix — Wrapped Cash (wCASH):** Blockchain purchases NEVER spend live
+cash (OPUS resets make it volatile). Instead: a one-way "Wrap" converter in
+the Blockchain world turns current cash into wCASH at any moment (player
+choice of when to lock it in). wCASH is a Decimal, untouched by any reset.
+All former cash-priced validators/contracts now price in wCASH. This is both
+the fix and on-theme (wrapped assets). Wrapping is the bridge ritual between
+worlds — make the button feel ceremonial.
+
+**Blocks (production step 2):** validators don't just trickle tokens — every
+N seconds (N shrinks with validator count) a BLOCK is mined: a visible,
+celebrated event in the feed paying a token burst, with a small chance
+(~1/12 blocks) of containing an ARTIFACT.
+
+**Artifacts (collection layer):** permanent collectible relics (8 designs:
+Genesis Shard, Dead Wallet Key, 51% Badge…), each a modest permanent boost
+(x1.5-x3 token or wCASH efficiency). Collection panel shows silhouettes of
+unfound ones. This is the persistent-engagement hook: blocks stay worth
+watching because any block might drop one.
+
+**Fork the Chain (nested prestige, unique mechanic):** resets validators +
+contracts (NOT artifacts, NOT wCASH) for a FORK. Each fork: pick ONE of two
+mutually exclusive chain rules (e.g. "PoS: validators 3x cheaper" vs "PoW:
+blocks 2x faster"; next fork offers a new pair). Forks are a build-crafting
+prestige — the reset choice IS the reward, no farmable currency. Fork
+requirement: lifetimeTokens milestones (1e4, 1e7, 1e11, ...).
+
+**Mempool (optional active play):** pending transactions accumulate in a
+small tray (cap 8); clicking one "signs" it for an instant token burst
+(~60s of income). Purely optional — idle players lose nothing structural,
+active players get their fidget. This is the Blockchain's swarm-console
+equivalent, not a copy of it.
+
+## 9. Balance directives (v2 — the numbers were far too fast)
+- AGI agents took ~5 min to fully acquire; target: ORACLE within ~30 min of
+  AGI unlock, GHOST ~1.5h, ATLAS-Ω ~3h. Lever: shard costs stay, but shard
+  INCOME must slow — singularity shards formula unchanged, so space out
+  singularities: model requirement gains a x10^(singularities^1.5) factor.
+- Token layer completed "instantly"; target ~2x slower than the early cash
+  game. Levers: validator tier spacing x1e3 between tiers (not x50), token-
+  priced tiers gated behind lifetimeTokens thresholds, contracts each gated
+  behind a lifetimeTokens milestone in addition to price.
+- All new constants in CONFIG; every gate visible in the transparency lines.
+
+## 10. UI directives (v2)
+- World switch swaps the ENTIRE page theme: body gets .world-chain class —
+  chain palette (cyan/teal), grid overlay, mono type, blocky radii apply
+  globally; simulator-only elements (swarm console, goal pill, cash-world
+  tabs) hidden, replaced by chain equivalents (block feed, fork status,
+  chain tabs). HUD shows ⬡ tokens + wCASH primary, cash secondary. Nothing
+  from the simulator palette bleeds through, and vice versa.
+- Purchases must NOT trigger structural rebuilds (blink/lag root cause):
+  dirtyStructure only on genuine unlocks/world switches. Buy paths update
+  in place via refs.
+- Tokenize availability is PERMANENT once 1e1000 cashThisRun is first
+  reached (persist a flag in stats; OPUS resets must not hide it again).
+- Goal checklist: after the final goal completes, the pill fades out and is
+  removed — no "all goals complete" placeholder.
+- Remove player-facing meta-commentary from descriptions (e.g. "this is the
+  strategy layer" on AGI agents) — the design should demonstrate purpose,
+  not narrate it. Sweep ALL user-visible copy for this pattern.
+
 ## 7. Explicitly out of scope (v1)
 GHOST and ATLAS-Ω effects (Finny designs), any reset-on-tokenize mechanics,
 token prestige loops. Placeholder slots render but do nothing.

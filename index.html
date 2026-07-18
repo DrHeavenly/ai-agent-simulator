@@ -125,7 +125,7 @@
         <div class="prestige-hero">
           <div class="p-title">🧬 AGI Agents</div>
           <div class="p-desc">Buy agents once with Shards, then freely equip up to 3 into your active roster.
-            Only EQUIPPED agents give their boost — this is the strategy layer: which 3 of 5 do you run?</div>
+            Only EQUIPPED agents give their boost.</div>
           <div class="p-stat" id="agiReqStat">—</div>
           <button class="p-btn" id="agiUnlockBtn">Unlock AGI Agents (100 shards)</button>
         </div>
@@ -393,7 +393,7 @@ function unlockTab(id) {
 
 /* ============================ structure builders ============================ */
 const refs = { tiers: [], upgrades: {}, cshop: {}, sshop: {}, ach: {}, lastMilestones: [],
-  validators: [], contracts: {}, agi: {}, agiSlots: [] };
+  validators: [], contracts: {}, agi: {}, agiSlots: [], stats: {} };
 const tokenizeUnlockCash = new Decimal(CONFIG.tokenize.unlockCash);
 function buildTiers() {
   const panel = document.getElementById('tiersPanel');
@@ -541,6 +541,54 @@ function buildAgiShop() {
     refs.agi[a.id] = { el: d, cost: d.querySelector('.s-cost'), speed: d.querySelector('.s-speed') };
   }
 }
+// Built once; render() only ever writes textContent into these cached refs —
+// this used to be a full innerHTML re-render every single frame (10/sec,
+// regardless of which tab was even open), the other real per-tick offender
+// alongside the purchase-triggered dirtyStructure blinking.
+function buildStatsCard() {
+  const el = document.getElementById('statsCard');
+  el.innerHTML = `
+    <div class="stat-line"><span>Lifetime earnings</span><b id="stLifetimeCash"></b></div>
+    <div class="stat-line"><span>This run</span><b id="stCashThisRun"></b></div>
+    <div class="stat-line"><span>Manual prompts</span><b id="stClicks"></b></div>
+    <div class="stat-line"><span>Compute prestiges</span><b id="stComputeResets"></b></div>
+    <div class="stat-line"><span>Models trained</span><b id="stModelResets"></b></div>
+    <div class="stat-line"><span>Singularities</span><b id="stSingularities"></b></div>
+    <div class="stat-line" id="stTokensLine"><span>Lifetime tokens</span><b id="stLifetimeTokens"></b></div>
+    <div class="stat-line"><span>Achievements</span><b id="stAchievements"></b></div>
+    <div class="stat-line"><span>Playtime</span><b id="stPlaytime"></b></div>
+    <div class="stat-h">Multiplier breakdown (all multiply together)</div>
+    <div class="stat-line"><span>Cash upgrades</span><b id="stUpgradesMult"></b></div>
+    <div class="stat-line"><span>Compute (this cycle)</span><b id="stComputeMult"></b></div>
+    <div class="stat-line"><span>Model versions</span><b id="stModelMult"></b></div>
+    <div class="stat-line"><span>Achievements</span><b id="stAchMult"></b></div>
+    <div class="stat-line"><span>Singularity</span><b id="stSingMult"></b></div>
+    <div class="stat-line"><span>= GLOBAL</span><b id="stGlobalMult"></b></div>
+    <div class="stat-line"><span>Click = flat + share of $/s</span><b id="stClickBreak"></b></div>
+    <div class="stat-h">The rules — exact formulas, no hidden math</div>
+    <div class="formula" id="stF1"></div>
+    <div class="formula" id="stF2"></div>
+    <div class="formula" id="stF3"></div>
+    <div class="formula" id="stF4"></div>
+    <div class="formula" id="stF5"></div>
+    <div class="formula" id="stF6"></div>
+    <div class="formula" id="stF7"></div>
+    <div class="formula" id="stF8"></div>`;
+  refs.stats = {
+    lifetimeCash: el.querySelector('#stLifetimeCash'), cashThisRun: el.querySelector('#stCashThisRun'),
+    clicks: el.querySelector('#stClicks'), computeResets: el.querySelector('#stComputeResets'),
+    modelResets: el.querySelector('#stModelResets'), singularities: el.querySelector('#stSingularities'),
+    tokensLine: el.querySelector('#stTokensLine'), lifetimeTokens: el.querySelector('#stLifetimeTokens'),
+    achievements: el.querySelector('#stAchievements'), playtime: el.querySelector('#stPlaytime'),
+    upgradesMult: el.querySelector('#stUpgradesMult'), computeMult: el.querySelector('#stComputeMult'),
+    modelMult: el.querySelector('#stModelMult'), achMult: el.querySelector('#stAchMult'),
+    singMult: el.querySelector('#stSingMult'), globalMult: el.querySelector('#stGlobalMult'),
+    clickBreak: el.querySelector('#stClickBreak'),
+    f1: el.querySelector('#stF1'), f2: el.querySelector('#stF2'), f3: el.querySelector('#stF3'),
+    f4: el.querySelector('#stF4'), f5: el.querySelector('#stF5'), f6: el.querySelector('#stF6'),
+    f7: el.querySelector('#stF7'), f8: el.querySelector('#stF8'),
+  };
+}
 function rebuildStructure() {
   buildTiers();
   buildShop('upgradesGrid', CONFIG.upgrades, buyUpgrade, it => fmtCash(it.cost), refs.upgrades);
@@ -551,6 +599,7 @@ function rebuildStructure() {
   buildAgiSlots();
   buildAgiShop();
   buildAchievements();
+  buildStatsCard();
   ui.dirtyStructure = false;
 }
 
@@ -588,10 +637,18 @@ function render() {
   $('hudTokens').style.display = game.tokenize.unlocked ? '' : 'none';
   if (game.tokenize.unlocked) $('hudTokens').textContent = fmtTok(game.blockchain.tokens) + ' · +' + fmtTok(tokenPerSecond()) + '/s';
   const goal = nextGoal();
-  $('goalText').textContent = goal.text; $('goalHint').textContent = goal.hint;
-  $('goal').dataset.action = goal.action;
-  $('goal').classList.toggle('ready', !!goal.ready);
-  $('goalGo').textContent = goal.ready ? '✦ do it' : '→';
+  if (goal) {
+    $('goal').classList.remove('goal-fade');
+    $('goal').parentElement.style.display = '';
+    $('goalText').textContent = goal.text; $('goalHint').textContent = goal.hint;
+    $('goal').dataset.action = goal.action;
+    $('goal').classList.toggle('ready', !!goal.ready);
+    $('goalGo').textContent = goal.ready ? '✦ do it' : '→';
+  } else if (!$('goal').classList.contains('goal-fade')) {
+    // checklist complete: fade the pill out, then remove it from layout — no placeholder text
+    $('goal').classList.add('goal-fade');
+    setTimeout(() => { $('goal').parentElement.style.display = 'none'; }, 450);
+  }
   $('clickVal').textContent = '+' + fmtCash(clickPower()) + ' per run';
 
   const rate = cashPerSecond();
@@ -640,7 +697,7 @@ function render() {
   if (game.cashThisRun.gte(CONFIG.compute.unlockCash * 0.01) || game.stats.computeResets > 0) unlockTab('tabCompute');
   if (game.stats.computeResets > 0) unlockTab('tabModels');
   if (game.models.level >= CONFIG.singularity.unlockModelLevel - 2 || game.stats.singularities > 0) unlockTab('tabSing');
-  if (game.cashThisRun.gte(tokenizeUnlockCash.times(1e-4)) || game.tokenize.unlocked) unlockTab('tabTokenize');
+  if (game.cashThisRun.gte(tokenizeUnlockCash.times(1e-4)) || game.tokenize.unlocked || game.stats.tokenizeSeen) unlockTab('tabTokenize');
   document.getElementById('worldSwitch').classList.toggle('show', game.tokenize.unlocked);
 
   const cg = computeGain();
@@ -674,7 +731,9 @@ function render() {
   // ---- tokenize ----
   $('tokenizeStat').textContent = game.tokenize.unlocked
     ? '✅ Tokenize is active — the Blockchain world runs alongside the cash world.'
-    : `Need ${fmtCash(tokenizeUnlockCash)} cash this run (have ${fmtCash(game.cashThisRun)})`;
+    : game.stats.tokenizeSeen
+      ? 'Threshold reached — ready to activate any time.'
+      : `Need ${fmtCash(tokenizeUnlockCash)} cash this run (have ${fmtCash(game.cashThisRun)})`;
   $('tokenizeBtn').style.display = game.tokenize.unlocked ? 'none' : '';
   $('tokenizeBtn').disabled = !canTokenize();
   $('tokenizeBtn').classList.toggle('ready', canTokenize());
@@ -740,33 +799,32 @@ function render() {
   for (const a of CONFIG.achievements) refs.ach[a.id]?.classList.toggle('got', !!game.achievements[a.id]);
 
   const bd = statBreakdown();
-  $('statsCard').innerHTML = `
-    <div class="stat-line"><span>Lifetime earnings</span><b>${fmtCash(game.lifetimeCash)}</b></div>
-    <div class="stat-line"><span>This run</span><b>${fmtCash(game.cashThisRun)}</b></div>
-    <div class="stat-line"><span>Manual prompts</span><b>${fmt(game.totalClicks)}</b></div>
-    <div class="stat-line"><span>Compute prestiges</span><b>${fmt(game.stats.computeResets)}</b></div>
-    <div class="stat-line"><span>Models trained</span><b>${fmt(game.stats.modelResets)}</b></div>
-    <div class="stat-line"><span>Singularities</span><b>${fmt(game.stats.singularities)}</b></div>
-    ${game.tokenize.unlocked ? `<div class="stat-line"><span>Lifetime tokens</span><b>${fmtTok(game.blockchain.lifetimeTokens)}</b></div>` : ''}
-    <div class="stat-line"><span>Achievements</span><b>${Object.keys(game.achievements).length}/${CONFIG.achievements.length} (+${Math.round((achievementMult() - 1) * 100)}%)</b></div>
-    <div class="stat-line"><span>Playtime</span><b>${(game.stats.playtime / 3600).toFixed(1)}h</b></div>
-    <div class="stat-h">Multiplier breakdown (all multiply together)</div>
-    <div class="stat-line"><span>Cash upgrades</span><b>x${fmt(bd.upgradesMult)}</b></div>
-    <div class="stat-line"><span>Compute (this cycle)</span><b>x${fmt(bd.computeMult)}</b></div>
-    <div class="stat-line"><span>Model versions</span><b>x${fmt(bd.modelMult)}</b></div>
-    <div class="stat-line"><span>Achievements</span><b>x${bd.achMult.toFixed(2)}</b></div>
-    <div class="stat-line"><span>Singularity</span><b>x${fmt(bd.singMult)}</b></div>
-    <div class="stat-line"><span>= GLOBAL</span><b>x${fmt(bd.globalMult)}</b></div>
-    <div class="stat-line"><span>Click = flat + share of $/s</span><b>${fmtCash(bd.clickFlat)} + ${(bd.clickShare * 100).toFixed(1)}%</b></div>
-    <div class="stat-h">The rules — exact formulas, no hidden math</div>
-    <div class="formula">Compute gain = ${bd.computeGainFormula}</div>
-    <div class="formula">${bd.computeBonusRule}</div>
-    <div class="formula">Model v(n+1) record required: ${bd.modelReqFormula}</div>
-    <div class="formula">${bd.recordRule}</div>
-    <div class="formula">${bd.milestoneRule} · ${bd.achEach}</div>
-    <div class="formula">${bd.costScaleRule}</div>
-    <div class="formula">${bd.cascadeRule}</div>
-    <div class="formula">${bd.shardRule}</div>`;
+  const st = refs.stats;
+  st.lifetimeCash.textContent = fmtCash(game.lifetimeCash);
+  st.cashThisRun.textContent = fmtCash(game.cashThisRun);
+  st.clicks.textContent = fmt(game.totalClicks);
+  st.computeResets.textContent = fmt(game.stats.computeResets);
+  st.modelResets.textContent = fmt(game.stats.modelResets);
+  st.singularities.textContent = fmt(game.stats.singularities);
+  st.tokensLine.style.display = game.tokenize.unlocked ? '' : 'none';
+  if (game.tokenize.unlocked) st.lifetimeTokens.textContent = fmtTok(game.blockchain.lifetimeTokens);
+  st.achievements.textContent = `${Object.keys(game.achievements).length}/${CONFIG.achievements.length} (+${Math.round((achievementMult() - 1) * 100)}%)`;
+  st.playtime.textContent = (game.stats.playtime / 3600).toFixed(1) + 'h';
+  st.upgradesMult.textContent = 'x' + fmt(bd.upgradesMult);
+  st.computeMult.textContent = 'x' + fmt(bd.computeMult);
+  st.modelMult.textContent = 'x' + fmt(bd.modelMult);
+  st.achMult.textContent = 'x' + bd.achMult.toFixed(2);
+  st.singMult.textContent = 'x' + fmt(bd.singMult);
+  st.globalMult.textContent = 'x' + fmt(bd.globalMult);
+  st.clickBreak.textContent = `${fmtCash(bd.clickFlat)} + ${(bd.clickShare * 100).toFixed(1)}%`;
+  st.f1.textContent = 'Compute gain = ' + bd.computeGainFormula;
+  st.f2.textContent = bd.computeBonusRule;
+  st.f3.textContent = 'Model v(n+1) record required: ' + bd.modelReqFormula;
+  st.f4.textContent = bd.recordRule;
+  st.f5.textContent = bd.milestoneRule + ' · ' + bd.achEach;
+  st.f6.textContent = bd.costScaleRule;
+  st.f7.textContent = bd.cascadeRule;
+  st.f8.textContent = bd.shardRule;
 }
 
 /* ============================ wire ============================ */
