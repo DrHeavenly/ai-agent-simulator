@@ -10,7 +10,7 @@
 const Decimal = typeof module !== 'undefined' ? require('./break_infinity.min.js') : window.Decimal;
 const CONFIG = {
   saveKey: 'ai_agent_sim_v1',
-  saveVersion: 4,
+  saveVersion: 5,
   tickRate: 10,
   autosaveMs: 10000,
   clickBase: 1,
@@ -110,16 +110,16 @@ const CONFIG = {
     unlockSingularities: 3,  // AND requires this many singularities
     slots: 3,
     list: [
-      { id: 'opus',   name: 'OPUS-9',    title: 'The Executive', cost: 40,  locked: false,
-        desc: 'Full automation: auto-prestige compute on record-caliber runs, auto-train models when possible' },
+      { id: 'opus',   name: 'OPUS-9',    title: 'The Executive',  cost: 40,  locked: false,
+        desc: 'TOTAL automation of the pre-Tokenize game: auto-clicks (5/sec), autobuys tiers + cash upgrades + compute shop, auto-prestiges compute on record-caliber runs, auto-trains models. Equip it and the cash game plays itself.' },
       { id: 'midas',  name: 'MIDAS',     title: 'The Rainmaker',  cost: 40,  locked: false,
         desc: 'ALL cash production ^1.05 then x1e6' },
       { id: 'oracle', name: 'ORACLE',    title: 'The Miner',      cost: 60,  locked: false,
         desc: 'Token gain x25' },
-      { id: 'ghost',  name: 'GHOST',     title: '???',            cost: 150, locked: true,
-        desc: 'awaiting classification' },
-      { id: 'atlas2', name: 'ATLAS-Ω', title: '???',         cost: 250, locked: true,
-        desc: 'awaiting classification' },
+      { id: 'ghost',  name: 'GHOST',     title: 'The Accelerant', cost: 150, locked: false,
+        desc: 'Simulation speed x(4·2^singularities), capped at x1024 — time itself runs faster: production, cascades, autobuyer cadence, and token accrual all inherit it.' },
+      { id: 'atlas2', name: 'ATLAS-Ω',   title: 'The Key',        cost: 250, locked: false,
+        desc: 'ALL income — cash AND tokens, every source including clicks — raised ^0.5 (sqrt) while equipped. A brutal tax; required to progress past the Blockchain\'s (not-yet-built) final stage.' },
     ],
   },
   tokenize: {
@@ -166,6 +166,7 @@ function freshState() {
     achievements: {},
     stats: { computeResets: 0, modelResets: 0, singularities: 0, playtime: 0, lastComputeRunSecs: null },
     settings: { soundOn: true },
+    goalIndex: 0,
     tokenize: { unlocked: false },
     agiAgents: { unlocked: false, owned: {}, equipped: [] },
     blockchain: {
@@ -383,13 +384,36 @@ function doSingularity() {
 }
 
 /* ============================== simulation ============================== */
+// ATLAS-Ω: ALL income (cash + tokens, every source incl. clicks) ^0.5 while
+// equipped — one choke point (addCash/addTokens, the two places income
+// actually lands in game state) instead of scattered per-source edits.
+function atlasTransform(x) {
+  return isAgentEquipped('atlas2') ? x.pow(0.5) : x;
+}
 function addCash(x) {
-  const d = x instanceof Decimal ? x : new Decimal(x);
+  const raw = x instanceof Decimal ? x : new Decimal(x);
+  const d = atlasTransform(raw);
   game.cash = game.cash.plus(d);
   game.lifetimeCash = game.lifetimeCash.plus(d);
   game.cashThisRun = game.cashThisRun.plus(d);
+  return d; // the actually-applied (post-tax) amount, for accurate UI feedback
+}
+function addTokens(x) {
+  const raw = x instanceof Decimal ? x : new Decimal(x);
+  const d = atlasTransform(raw);
+  game.blockchain.tokens = game.blockchain.tokens.plus(d);
+  game.blockchain.lifetimeTokens = game.blockchain.lifetimeTokens.plus(d);
+  return d;
+}
+// GHOST: simulation dt x(4 * 2^singularities) while equipped, capped at 1024
+// so an endgame stack can't spin the tab into a runaway loop.
+function ghostSpeedFactor() {
+  return Math.min(1024, 4 * Math.pow(2, game.stats.singularities));
 }
 function tick(dt) {
+  // Applied here, at dt's origin — every dt-driven system inherits it in one
+  // place: production, cascades, the blockchain tick, playtime, autobuyer cadence.
+  if (isAgentEquipped('ghost')) dt *= ghostSpeedFactor();
   // cascade: tier i produces tier i-1; tier 0 produces cash
   const gm = globalMult();
   const gains = CONFIG.tiers.map(() => new Decimal(0));
@@ -414,11 +438,17 @@ function tick(dt) {
   autoTimer += dt;
   if (autoTimer >= 1) {
     autoTimer = 0;
-    if (game.compute.shop.auto2) { for (let i = CONFIG.tiers.length - 1; i >= 0; i--) buyTier(i, 'max'); }
+    const opus = isAgentEquipped('opus');
+    if (game.compute.shop.auto2 || opus) { for (let i = CONFIG.tiers.length - 1; i >= 0; i--) buyTier(i, 'max'); }
     else if (game.compute.shop.auto1) { for (let i = 2; i >= 0; i--) buyTier(i, 'max'); }
-    if (game.compute.shop.autoup) for (const u of CONFIG.upgrades) buyUpgrade(u.id);
-    // OPUS-9: auto-prestige compute on record-caliber runs, auto-train models when possible
-    if (isAgentEquipped('opus')) {
+    if (game.compute.shop.autoup || opus) for (const u of CONFIG.upgrades) buyUpgrade(u.id);
+    if (opus) {
+      // OPUS-9: TOTAL automation of the pre-Tokenize game (spec sec. 1) — also
+      // autobuy the compute shop and auto-click at 5/sec through the real click
+      // pipeline (silent: no per-click UI feedback for synthetic clicks), then
+      // auto-prestige compute on record-caliber runs and auto-train models.
+      for (const s of CONFIG.compute.shop) buyComputeShop(s.id);
+      for (let k = 0; k < 5; k++) performClick(undefined, true);
       const earnedBefore = game.compute.thisModelEarned;
       const gain = computeGain();
       if (gain.gt(0) && gain.gte(earnedBefore.times(2))) doComputeReset();
@@ -428,13 +458,17 @@ function tick(dt) {
 }
 let autoTimer = 0;
 
-function manualClick(event) {
+function performClick(event, silent) {
   const gain = clickPower();
-  addCash(gain);
+  const applied = addCash(gain);
   game.totalClicks += 1; game.clicksThisRun += 1;
-  if (typeof ui.clickFeedback === 'function') ui.clickFeedback(gain, event);
-  if (typeof ui.sfxBlip === 'function') ui.sfxBlip();
+  if (!silent) {
+    if (typeof ui.clickFeedback === 'function') ui.clickFeedback(applied, event);
+    if (typeof ui.sfxBlip === 'function') ui.sfxBlip();
+  }
+  return applied;
 }
+function manualClick(event) { return performClick(event, false); }
 
 /* ============================== AGI agents ============================== */
 function isAgentEquipped(id) { return game.agiAgents.equipped.includes(id); }
@@ -579,8 +613,7 @@ function tickBlockchain(dt) {
     gains[i - 1] = gains[i - 1].plus(produced.times(CONFIG.blockchain.validatorCascadeRate));
   }
   for (let i = 0; i < gains.length; i++) game.blockchain.validators[i].owned = game.blockchain.validators[i].owned.plus(gains[i]);
-  game.blockchain.tokens = game.blockchain.tokens.plus(tokenGain);
-  game.blockchain.lifetimeTokens = game.blockchain.lifetimeTokens.plus(tokenGain);
+  addTokens(tokenGain);
 }
 
 /* ============================== achievements ============================== */
@@ -636,10 +669,15 @@ function migrateSave(data) {
   // applySave()'s fresh-state merge fills in the new nested objects for saves
   // that predate them, so nothing existing is lost.
   if (data.version === 3) { data.version = 4; }
+  // v4 -> v5: added persisted `goalIndex` for the monotonic goal checklist —
+  // no structural change here either; applySave() detects its absence and
+  // derives a starting index from progress (see deriveInitialGoalIndex).
+  if (data.version === 4) { data.version = 5; }
   return data;
 }
 function applySave(data) {
   if (!data || typeof data !== 'object' || !data.game) return false;
+  const hadGoalIndex = typeof data.game.goalIndex === 'number';
   while (data.version !== CONFIG.saveVersion) {
     const beforeVersion = data.version;
     data = migrateSave(data);
@@ -670,6 +708,9 @@ function applySave(data) {
   game.blockchain.tokens = new Decimal(game.blockchain.tokens || 0);
   game.blockchain.lifetimeTokens = new Decimal(game.blockchain.lifetimeTokens || 0);
   game.blockchain.validators.forEach(v => { v.owned = new Decimal(v.owned || 0); });
+  // goalIndex: trust a persisted value; derive one for saves that predate it
+  // (see deriveInitialGoalIndex — must run last, after everything above is live)
+  if (!hadGoalIndex) game.goalIndex = deriveInitialGoalIndex();
   return true;
 }
 function load() {
@@ -731,31 +772,81 @@ const ui = {
 };
 
 /* ============================== next goal ============================== */
-// Each goal carries an `action` the UI executes on click — a goal you can see
-// but not act on breaks player expectations. `ready` = clicking completes it
-// right now; otherwise clicking navigates to where progress happens.
+// Goals form a fixed, ORDERED checklist (spec sec. 1). `game.goalIndex` is the
+// single source of truth for progress through it — it only ever moves forward.
+// A goal's `check` may later go false again (e.g. a tier's `purchased` count
+// resets on prestige) without the goal reappearing, because once goalIndex has
+// advanced past it we never re-evaluate that entry again.
+// `action` is one the existing goal-pill click handler already understands
+// (buyTier:/compute/model/sing/tab:) — no click-handling changes needed.
+const GOALS = (() => {
+  const list = [
+    { id: 'tier0', check: g => g.tiers[0].purchased >= 1,
+      build: g => ({ text: 'Deploy your first Chatbot', hint: fmtCash(tierCost(0, g.tiers[0].purchased)),
+                     action: 'buyTier:0', ready: g.cash.gte(tierCost(0, g.tiers[0].purchased)) }) },
+  ];
+  for (let i = 1; i < CONFIG.tiers.length; i++) {
+    list.push({ id: 'tier' + i, check: g => g.tiers[i].purchased >= 1,
+      build: g => ({ text: `Unlock ${CONFIG.tiers[i].name}`, hint: fmtCash(tierCost(i, g.tiers[i].purchased)),
+                     action: 'buyTier:' + i, ready: g.cash.gte(tierCost(i, g.tiers[i].purchased)) }) });
+  }
+  list.push(
+    { id: 'compute1', check: g => g.stats.computeResets >= 1,
+      build: g => {
+        const cg = computeGain();
+        return cg.gt(0)
+          ? { text: 'Rent Compute (prestige)', hint: `+${fmt(cg)} compute`, action: 'compute', ready: true }
+          : { text: 'Rent Compute (prestige)', hint: `${fmtCash(g.cashThisRun)}/${fmtCash(CONFIG.compute.unlockCash)}`, action: 'compute', ready: false };
+      } },
+    { id: 'model1', check: g => g.stats.modelResets >= 1,
+      build: g => canTrainModel()
+        ? { text: 'Train your first Model', hint: 'record run in hand — train now', action: 'model', ready: true }
+        : { text: 'Train your first Model', hint: `best reset ${fmt(g.compute.bestGain)}/${fmt(modelRequirement(g.models.level))}`, action: 'model', ready: false } },
+    // `singularities >= 1` as a fallback: level resets to 0 on Singularity, but
+    // reaching one at all requires having hit v8 first — so this can't regress.
+    { id: 'model8', check: g => g.models.level >= 8 || g.stats.singularities >= 1,
+      build: g => ({ text: 'Reach Model v8', hint: `v${g.models.level}/v8`, action: 'tab:models', ready: false }) },
+    { id: 'sing1', check: g => g.stats.singularities >= 1,
+      build: g => canSingularity()
+        ? { text: 'The Singularity awaits', hint: `+${fmt(singularityShards())} shards`, action: 'sing', ready: true }
+        : { text: 'Trigger the Singularity', hint: `Model v${g.models.level}/v8`, action: 'sing', ready: false } },
+    { id: 'sing3', check: g => g.stats.singularities >= 3,
+      build: g => ({ text: 'Reach 3 Singularities', hint: `${g.stats.singularities}/3`, action: 'tab:singularity', ready: false }) },
+    { id: 'agiUnlock', check: g => g.agiAgents.unlocked,
+      build: g => ({ text: 'Unlock AGI Agents',
+                     hint: `${g.stats.singularities}/${CONFIG.agiAgents.unlockSingularities} sing · ${fmt(g.singularity.shards)}/${CONFIG.agiAgents.unlockShards} shards`,
+                     action: 'tab:agi', ready: canUnlockAgiAgents() }) },
+    { id: 'tokenize', check: g => g.tokenize.unlocked,
+      build: g => ({ text: 'Activate Tokenize', hint: `${fmtCash(g.cashThisRun)}/${fmtCash(CONFIG.tokenize.unlockCash)}`,
+                     action: 'tab:tokenize', ready: canTokenize() }) },
+    { id: 'tokenValidator', check: g => g.blockchain.validators[2].purchased >= 1,
+      build: g => ({ text: 'Deploy a Mining Farm', hint: 'first token-funded validator', action: 'tab:validators', ready: false }) },
+    { id: 'allContracts', check: g => CONFIG.blockchain.contracts.every(c => g.blockchain.contracts[c.id]),
+      build: g => {
+        const owned = CONFIG.blockchain.contracts.filter(c => g.blockchain.contracts[c.id]).length;
+        return { text: 'Own every Smart Contract', hint: `${owned}/${CONFIG.blockchain.contracts.length}`, action: 'tab:contracts', ready: false };
+      } },
+  );
+  return list;
+})();
 function nextGoal() {
-  if (game.tiers[0].purchased < 1) {
-    const can = game.cash.gte(tierCost(0, 0));
-    return { text: 'Deploy your first Chatbot', hint: fmtCash(tierCost(0, 0)),
-             action: 'buyTier:0', ready: can };
+  while (game.goalIndex < GOALS.length && GOALS[game.goalIndex].check(game)) game.goalIndex += 1;
+  if (game.goalIndex >= GOALS.length) {
+    return { text: 'All goals complete', hint: 'the checklist is clear — grind on', action: '', ready: false };
   }
-  const lockedTier = CONFIG.tiers.findIndex((t, i) => i > 0 && game.tiers[i].purchased < 1 && game.tiers[i - 1].purchased >= 1);
-  if (game.cashThisRun.gte(CONFIG.compute.unlockCash)) {
-    if (canSingularity()) return { text: 'The Singularity awaits', hint: `+${fmt(singularityShards())} shards`, action: 'sing', ready: true };
-    if (canTrainModel()) return { text: `Train Model v${game.models.level + 1}`, hint: 'resets compute layer', action: 'model', ready: true };
-    return { text: 'Rent Compute (prestige)', hint: `+${fmt(computeGain())} compute`, action: 'compute', ready: true };
-  }
-  if (game.stats.computeResets > 0 && !canTrainModel())
-    return { text: `Toward Model v${game.models.level + 1}`, hint: `best reset ${fmt(game.compute.bestGain)}/${fmt(modelRequirement(game.models.level))} — one BIG run`,
-             action: 'tab:models', ready: false };
-  if (lockedTier !== -1) {
-    const can = game.cash.gte(tierCost(lockedTier, 0));
-    return { text: `Unlock ${CONFIG.tiers[lockedTier].name}`, hint: fmtCash(CONFIG.tiers[lockedTier].baseCost),
-             action: 'buyTier:' + lockedTier, ready: can };
-  }
-  return { text: 'Toward Compute prestige', hint: `${fmtCash(game.cashThisRun)}/${fmtCash(CONFIG.compute.unlockCash)}`,
-           action: 'tab:compute', ready: false };
+  return GOALS[game.goalIndex].build(game);
+}
+// Migration helper: an old save has no persisted goalIndex. Deriving it from a
+// naive live check would regress veteran players to goal #1 whenever their
+// per-run state (tiers, cashThisRun) happens to be freshly reset — so any
+// completed compute prestige is treated as proof tier0-5 + compute1 are done
+// (reaching the unlock threshold without ever touching higher tiers is not
+// practically possible given cascade economics), then the remaining goals
+// (all backed by monotonic counters/flags) are safe to live-check as normal.
+function deriveInitialGoalIndex() {
+  let idx = game.stats.computeResets >= 1 ? 7 : 0;
+  while (idx < GOALS.length && GOALS[idx].check(game)) idx++;
+  return idx;
 }
 
 /* ============================== transparency helpers ============================== */
@@ -805,6 +896,7 @@ if (typeof module !== 'undefined') module.exports = {
   isAgentEquipped, canUnlockAgiAgents, unlockAgiAgents, buyAgiAgent, equipAgiAgent, unequipAgiAgent,
   canTokenize, doTokenize, tokenPerSecond, validatorCost, validatorCostN, validatorMaxAffordable,
   buyValidator, buyContract, validatorAllMult, tokenCrossMult, cashCrossMult, contractCostReduction,
-  validatorUnitOutput,
+  validatorUnitOutput, performClick, addTokens, atlasTransform, ghostSpeedFactor,
+  GOALS, deriveInitialGoalIndex,
   _setGame: g => { game = g; },
 };

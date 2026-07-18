@@ -383,6 +383,8 @@ button.vbuy.affordable .cost { color:var(--chain); }
 .agent-card.equipped { border-color:rgba(154,109,255,.55); background:rgba(154,109,255,.09); box-shadow:0 0 18px rgba(154,109,255,.14); }
 .agent-card.equipped::after { content:"EQUIPPED"; position:absolute; top:9px; right:11px; color:var(--acc2); font-weight:800; font-size:9px; letter-spacing:.05em; }
 .agent-card .a-title { color:var(--dim); font-size:10px; margin-top:-2px; margin-bottom:4px; font-style:italic; }
+.agent-card .s-speed:empty { display:none; }
+.agent-card .s-speed { font:700 10.5px var(--mono); color:var(--warn); margin-bottom:4px; }
 .agent-card.silhouette { filter:grayscale(1); }
 .agent-card.silhouette .s-name { color:var(--dim); }
 .agent-card[draggable="true"] { cursor:grab; }

@@ -14,11 +14,18 @@ spec is silent, choose the simplest option and flag it in your summary.
 - **The 5 agents:**
   | id | name | cost (shards) | boost |
   |---|---|---|---|
-  | opus | OPUS-9 "The Executive" | 40 | full automation: auto-prestige compute when gain >= 2x cycle (records included), auto-train models when possible |
+  | opus | OPUS-9 "The Executive" | 40 | TOTAL automation of the pre-Tokenize game: auto-click at 5/sec (uses real clickPower incl. share), autobuy all tiers + cash upgrades + compute shop, auto-prestige compute (records included), auto-train models. Equipped OPUS-9 = the cash game plays itself. |
   | midas | MIDAS "The Rainmaker" | 40 | ALL cash production ^1.05 then x1e6 (post-Decimal, exponent boosts matter) |
   | oracle | ORACLE "The Miner" | 60 | token gain x25 — effectively required for token progression |
-  | ghost | GHOST (locked art, "???") | 150 | placeholder — Finny designs later; show silhouette + "awaiting classification" |
-  | atlas2 | ATLAS-Ω (locked art, "???") | 250 | placeholder — same treatment |
+  | ghost | GHOST "The Accelerant" | 150 | game-SPEED multiplier, exponential: simulation dt x(4 · 2^singularities) while equipped. Boosts nothing directly — time itself runs faster (production, cascades, autobuyer cadence, token accrual all inherit it). Display the current speed factor on the agent card. |
+  | atlas2 | ATLAS-Ω "The Key" | 250 | required to progress past the Blockchain's final stage (stage itself not yet implemented — gate exists, content later). While equipped: ALL income, cash AND tokens, is raised ^0.5 (sqrt — a brutal tax). The endgame tradeoff: you must wear the key that halves your exponents. |
+
+- **Goal progression is MONOTONIC:** goals form an ordered checklist (first
+  Chatbot → each tier unlock → first compute → first model → v8 → Singularity
+  → 3 Singularities → AGI unlock → Tokenize → first token-tier validator →
+  own all Smart Contracts). A completed goal NEVER reappears, even if the
+  underlying condition later becomes false (e.g. post-reset). Persist
+  `goalIndex` in the save; clicking the goal pill still executes/navigates.
 - Buying an agent does NOT consume singularities, only shards. Agents persist
   forever (never reset by anything).
 

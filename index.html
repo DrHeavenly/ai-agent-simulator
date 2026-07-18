@@ -525,6 +525,7 @@ function buildAgiShop() {
     d.innerHTML = `<div class="s-name">${a.locked ? '❔ ???' : a.name}</div>
       <div class="a-title">${a.locked ? 'awaiting classification' : a.title}</div>
       <div class="s-desc">${a.desc}</div>
+      <div class="s-speed"></div>
       <div class="s-cost"></div>`;
     d.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', a.id));
     d.addEventListener('click', () => {
@@ -537,7 +538,7 @@ function buildAgiShop() {
       } else ui.sfxTick();
     });
     grid.appendChild(d);
-    refs.agi[a.id] = { el: d, cost: d.querySelector('.s-cost') };
+    refs.agi[a.id] = { el: d, cost: d.querySelector('.s-cost'), speed: d.querySelector('.s-speed') };
   }
 }
 function rebuildStructure() {
@@ -706,6 +707,10 @@ function render() {
       r.cost.textContent = owned
         ? (equipped ? 'Equipped — click to bench' : 'Owned — click to equip')
         : fmt(a.cost) + ' shards';
+      if (a.id === 'ghost') {
+        const factor = ghostSpeedFactor();
+        r.speed.textContent = (equipped ? 'ACTIVE — ' : 'preview — ') + `x${fmt(factor)} speed (${game.stats.singularities} singularities)`;
+      }
     }
   }
 
